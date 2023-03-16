@@ -2,18 +2,19 @@ package main
 
 import (
 	"cloud-benchmark-tool/common"
-	compute "cloud.google.com/go/compute/apiv1"
-	"cloud.google.com/go/storage"
 	"context"
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	log "github.com/sirupsen/logrus"
-	"google.golang.org/api/option"
 	"io"
 	"net"
 	"sync"
+
+	compute "cloud.google.com/go/compute/apiv1"
+	"cloud.google.com/go/storage"
+	"github.com/BurntSushi/toml"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/api/option"
 
 	"math/rand"
 
@@ -129,7 +130,7 @@ func main() {
 
 	// Sending benchmarks
 	quitSend := make(chan bool, 1)
-	inSend, err := net.Listen("tcp", ":5000")
+	inSend, err := net.Listen("tcp", ":5002")
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -137,7 +138,7 @@ func main() {
 
 	// Sending benchmarks
 	quitRecv := make(chan bool, 1)
-	inRecv, err := net.Listen("tcp", ":5001")
+	inRecv, err := net.Listen("tcp", ":5003")
 	if err != nil {
 		log.Fatalln(err)
 	}

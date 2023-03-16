@@ -11,6 +11,9 @@ var runnerBytes []byte
 func generateStartupScript(projUri string, tag string, basePackage string, bed int, iterations int, sr int, orchestratorIp string, benchListPort string, msrmntReportPort string) []byte {
 	scriptFormatString := `#!/bin/bash
 
+echo "Running startup script ..."
+LOGFILE=startup.log
+
 # define the tasks that need to be done with the extracted content
 run_benchmark_runner() {
     cd $WORK_DIR
@@ -34,7 +37,7 @@ PAYLOAD_LINE=$(awk '/^__PAYLOAD_BEGINS__/ { print NR + 1; exit 0; }' $0)
 tail -n +${PAYLOAD_LINE} $0 >> $WORK_DIR/runner
 
 # perform actions with the extracted content
-run_benchmark_runner
+run_benchmark_runner >& $LOGFILE
 
 exit 0
 __PAYLOAD_BEGINS__
