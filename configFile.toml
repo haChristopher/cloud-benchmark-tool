@@ -15,7 +15,7 @@ gcpProject = "master-thesis-benchmark"
 gcpBucket = "master-thesis-test-bucket"
 
 # This tool needs a custom linux image with access to the Go compiler suite and git
-gcpImage = "debian-git-go "
+gcpImage = "debian-git-go"
 
 # Benchmark Execution Duration (baseline: 1s) (remove)
 bed = 1
