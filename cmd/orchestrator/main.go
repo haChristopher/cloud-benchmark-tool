@@ -201,7 +201,7 @@ func main() {
 	// wait for results
 	wgIrResults.Wait()
 	// shutdown instances
-	shutdownAllInstances(&listOfInstances, cfg.GCPProject, gclientCompute, ctx)
+	// shutdownAllInstances(&listOfInstances, cfg.GCPProject, gclientCompute, ctx)
 	// END EXPERIMENT
 
 	// Only end when Crtl+C is pressed

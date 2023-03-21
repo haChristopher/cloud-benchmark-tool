@@ -1,8 +1,11 @@
 package common
 
 import (
+	"log"
+	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -47,16 +50,36 @@ func MaskNameRegexp(name string) string {
 	return nameRegexp
 }
 
-func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int) error {
+func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool) error {
 	cmd := exec.Command("go", "clean", "--cache")
-	//cmd.Dir =
+
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "%#v: error while running go clean --cache.", cmd.Args)
 	}
 
+	iter := strconv.Itoa(itPos)
+
+	// var pprofCmd [4]string
+	// if pprof {
+	// 	pprofCmd = [4]string{"-memprofile", bench.Name + ".out", "-cpuprofile", bench.Name + ".out"}
+	// }
+
+	// Create directories for pprof output
+	err = os.MkdirAll("proj/cpu", os.ModePerm)
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = os.MkdirAll("proj/mem", os.ModePerm)
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println("Running Benchmarks with pprof")
+
 	for i := 0; i < bed; i++ { // each iteration on this level is 1s of benchtime, repeat until bed is reached
-		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package)
+		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-memprofile", "mem/"+bench.Name+"_"+iter+".out", "-cpuprofile", "cpu/"+bench.Name+"_"+iter+".out")
 		cmd.Dir = bench.ProjectPath
 		out, err := cmd.CombinedOutput()
 		if err != nil {

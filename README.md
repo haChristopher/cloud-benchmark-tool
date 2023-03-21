@@ -39,7 +39,7 @@ make all
 ```
 
 ```
-./build/orchestrator --configFile configFile.toml --credentials /Users/christopher/Uni/MasterThesis/keys/master-thesis-benchmark-d7f8df1edc74.json --benchmark-list-port 5002 --measurement-report-port 5003
+./build/orchestrator --configFile configFile.toml --credentials master-thesis-benchmark-d7f8df1edc74.json --benchmark-list-port 5002 --measurement-report-port 5003 --instance-name operator-main --ip 10.156.0.13 --clean-db
 ```
 
 # Debugging
@@ -51,5 +51,13 @@ sudo journalctl -u google-startup-scripts.service -f
 
 Run Startup script:
 ```
-sudo google_metadata_script_runner startup
+    sudo google_metadata_script_runner startup
 ```
+
+# Image Creation
+
+```
+sudo apt install graphviz gv
+```
+
+go test -benchtime 1s -bench ^BenchmarkCreateBuildInfo$ ./expfmt -memprofile BenchmarkCreateBuildInfo.out -cpuprofile BenchmarkCreateBuildInfo.out

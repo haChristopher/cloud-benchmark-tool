@@ -1,3 +1,6 @@
+# For key remove later
+*.json
+
 # Binaries for programs and plugins
 *.exe
 *.exe~

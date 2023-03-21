@@ -82,7 +82,7 @@ func main() {
 			itCounts[curr]++
 			// execute current benchmark
 			log.Debugf("Executing %s with iteration %d of %d", (*benchmarks)[curr].Name, itCounts[curr], ca.Iterations)
-			err := (*benchmarks)[curr].RunBenchmark(ca.Bed, itCounts[curr], i)
+			err := (*benchmarks)[curr].RunBenchmark(ca.Bed, itCounts[curr], i, true)
 			if err != nil {
 				log.Debug(err)
 			}

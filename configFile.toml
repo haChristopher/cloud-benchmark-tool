@@ -2,7 +2,7 @@
 name = "commons"
 
 # Path to the project to benchmark
-path = "/Users/christopher/Uni/MasterThesis/repositories/common"
+path = "/home/chris77772/common/"
 
 projUri = "https://github.com/prometheus/common.git"
 
@@ -15,13 +15,13 @@ gcpProject = "master-thesis-benchmark"
 gcpBucket = "master-thesis-test-bucket"
 
 # This tool needs a custom linux image with access to the Go compiler suite and git
-gcpImage = "debian-git-go"
+gcpImage = "debian-git-go-fixed"
 
 # Benchmark Execution Duration (baseline: 1s) (remove)
 bed = 1
 
 # Number of executions of single benchmark during a suite run (baseline: 5) (remove)
-it = 1
+it = 3
 
 # Number of suite runs (baseline: 3) (remove)
 sr = 1
