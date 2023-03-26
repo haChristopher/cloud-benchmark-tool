@@ -4,11 +4,12 @@ import (
 	"cloud-benchmark-tool/common"
 	"encoding/gob"
 	"flag"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"math/rand"
 	"net"
 	"regexp"
+
+	log "github.com/sirupsen/logrus"
 
 	"os"
 	"time"
@@ -90,6 +91,9 @@ func main() {
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)
 	}
 
+	log.Debug("Uploading pprof files to bucket")
+	uploadPprofFiles()
+
 	// Send benchmarks with measurement results back
 	log.Debug("Sending measurements to orchestrator")
 	sendMeasurements(benchmarks, ca.OrchestratorIp, ca.MeasurementReportPort)
@@ -134,4 +138,8 @@ func sendMeasurements(benchmarks *[]common.Benchmark, ip string, port string) {
 		encoder.Encode((*benchmarks)[i])
 	}
 	conn.Close()
+}
+
+func uploadPprofFiles() {
+
 }

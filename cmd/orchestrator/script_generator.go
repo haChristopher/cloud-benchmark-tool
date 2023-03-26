@@ -12,6 +12,7 @@ func generateStartupScript(projUri string, tag string, basePackage string, bed i
 	scriptFormatString := `#!/bin/bash
 
 echo "Running startup script ..."
+export PATH=$PATH:/usr/local/go/bin
 LOGFILE=startup.log
 
 # define the tasks that need to be done with the extracted content
