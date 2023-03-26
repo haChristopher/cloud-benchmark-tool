@@ -76,8 +76,9 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool) 
 		log.Println(err)
 	}
 
-	for i := 0; i < bed; i++ { // each iteration on this level is 1s of benchtime, repeat until bed is reached
-		// node count hochsetzen, node fraction edge fraction
+	for i := 0; i < bed; i++ {
+		// each iteration on this level is 1s of benchtime, repeat until bed is reached
+		// go tool pprof -nodecount=3000 --nodefraction=0.0 --edgefraction=0.0 -dot cpu.pprof > pprof.dot
 		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-memprofile", "mem/"+bench.Name+"_"+iter+".out", "-cpuprofile", "cpu/"+bench.Name+"_"+iter+".out")
 		cmd.Dir = bench.ProjectPath
 		out, err := cmd.CombinedOutput()

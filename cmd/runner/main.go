@@ -2,13 +2,17 @@ package main
 
 import (
 	"cloud-benchmark-tool/common"
+	"context"
 	"encoding/gob"
 	"flag"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"regexp"
 
+	"cloud.google.com/go/storage"
 	log "github.com/sirupsen/logrus"
 
 	"os"
@@ -25,6 +29,8 @@ type (
 		OrchestratorIp        string
 		BenchmarkListPort     string
 		MeasurementReportPort string
+		ProjectName           string
+		BucketName            string
 	}
 )
 
@@ -38,6 +44,9 @@ func parseArgs() (ca cmdArgs) {
 	flag.StringVar(&(ca.OrchestratorIp), "orchestrator-ip", "127.0.0.1", "IP address of the orchestrator program to report results to.")
 	flag.StringVar(&(ca.BenchmarkListPort), "benchmark-list-port", "5000", "Port, under which the orchestrator reports the list of benchmarks.")
 	flag.StringVar(&(ca.MeasurementReportPort), "measurement-report-port", "5001", "Port, under which the orchestrator receives the benchmarking measurements.")
+
+	flag.StringVar(&(ca.ProjectName), "project-name", "default", "Project of bucket to upload experiment pprof files to.")
+	flag.StringVar(&(ca.BucketName), "bucket-name", "default", "Bucket to upload experiment pprof files to.")
 
 	flag.Parse()
 
@@ -91,8 +100,10 @@ func main() {
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)
 	}
 
+	// Upload pprof files to bucket
 	log.Debug("Uploading pprof files to bucket")
-	uploadPprofFiles()
+	uploadPprofFilesToBucket("proj/cpu/", ca.ProjectName, ca.BucketName)
+	uploadPprofFilesToBucket("cpu/", ca.ProjectName, ca.BucketName)
 
 	// Send benchmarks with measurement results back
 	log.Debug("Sending measurements to orchestrator")
@@ -140,6 +151,34 @@ func sendMeasurements(benchmarks *[]common.Benchmark, ip string, port string) {
 	conn.Close()
 }
 
-func uploadPprofFiles() {
+func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName string) {
+	items, _ := ioutil.ReadDir(path)
 
+	// check if there is an item
+	if len(items) == 0 {
+		log.Warnf("No files found to upload in path: %s", path)
+		return
+	}
+
+	// open gcp storage client use default credentials (orchestrator should granta access)
+	ctx := context.Background()
+	gclientStorage, err := storage.NewClient(ctx)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer gclientStorage.Close()
+
+	for _, item := range items {
+		fmt.Println(item.Name())
+		bytes, err := ioutil.ReadFile(item.Name())
+
+		if err != nil {
+			log.Warnf("Could not read file %s and upload it to bucket", item.Name())
+			continue
+		}
+
+		// use from common
+		key := "runner/" + item.Name()
+		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
+	}
 }

@@ -173,7 +173,19 @@ func main() {
 
 	// RUN EXPERIMENT
 	currSetup.Mu.Lock()
-	script := generateStartupScript(cfg.ProjUri, cfg.Tag, cfg.BasePackage, currSetup.Bed, currSetup.Iterations, currSetup.Sr, ca.Ip, ca.BenchmarkListPort, ca.MeasurementReportPort)
+	script := generateStartupScript(
+		cfg.ProjUri,
+		cfg.Tag,
+		cfg.BasePackage,
+		currSetup.Bed,
+		currSetup.Iterations,
+		currSetup.Sr,
+		ca.Ip,
+		ca.BenchmarkListPort,
+		ca.MeasurementReportPort,
+		cfg.GCPProject,
+		cfg.GCPBucket,
+	)
 	instances := currSetup.Ir
 	log.Debugf("Experiment Start\nSetup: BED = %d, It = %d, SR = %d, IR = %d", currSetup.Bed, currSetup.Iterations, currSetup.Sr, currSetup.Ir)
 	currSetup.Mu.Unlock()

@@ -1,4 +1,4 @@
-package main
+package common
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 )
 
-func uploadBytes(toUpload []byte, fileKey string, gcpProjectName string, gcpBucketName string, gclient *storage.Client, ctx context.Context) {
-	wc := gclient.Bucket(gcpBucketName).Object(fileKey).NewWriter(ctx)
+func UploadBytes(toUpload []byte, orchestratorName string, gcpProjectName string, gcpBucketName string, gclient *storage.Client, ctx context.Context) {
+	wc := gclient.Bucket(gcpBucketName).Object(orchestratorName + "/startup.sh").NewWriter(ctx)
 	wc.ContentType = "text/plain"
 	// make this file public readable
 	wc.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
