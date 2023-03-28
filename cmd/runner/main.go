@@ -103,7 +103,6 @@ func main() {
 	// Upload pprof files to bucket
 	log.Debug("Uploading pprof files to bucket")
 	uploadPprofFilesToBucket("proj/cpu/", ca.ProjectName, ca.BucketName)
-	uploadPprofFilesToBucket("cpu/", ca.ProjectName, ca.BucketName)
 
 	// Send benchmarks with measurement results back
 	log.Debug("Sending measurements to orchestrator")
@@ -168,17 +167,19 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 	}
 	defer gclientStorage.Close()
 
+	// Hostname is used as prefix for the uploaded files
+	hostname, err := os.Hostname()
+
 	for _, item := range items {
 		fmt.Println(item.Name())
-		bytes, err := ioutil.ReadFile(item.Name())
+		bytes, err := ioutil.ReadFile(path + item.Name())
 
 		if err != nil {
-			log.Warnf("Could not read file %s and upload it to bucket", item.Name())
+			log.Warnf("Could not read file %s and upload it to bucket in path: %s", item.Name(), path)
 			continue
 		}
 
-		// use from common
-		key := "runner/" + item.Name()
+		key := hostname + "/" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }
