@@ -4,7 +4,7 @@ import (
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 )
 
-func generateNewInstance(name string, orchestratorName string, gcpProjectName string, gcpBucketName string, gcpImageName string) *computepb.Instance {
+func GenerateNewInstance(name string, orchestratorName string, gcpProjectName string, gcpBucketName string, gcpImageName string) *computepb.Instance {
 	newInstance := computepb.Instance{
 		CanIpForward: FalsePointer(),
 		Disks: []*computepb.AttachedDisk{
@@ -39,6 +39,14 @@ func generateNewInstance(name string, orchestratorName string, gcpProjectName st
 				{
 					Key:   StringPointer("startup-script-url"),
 					Value: StringPointer("https://storage.googleapis.com/" + gcpBucketName + "/" + orchestratorName + "/startup.sh"),
+				},
+			},
+		},
+		ServiceAccounts: []*computepb.ServiceAccount{
+			{
+				Email: StringPointer("994134327751-compute@developer.gserviceaccount.com"),
+				Scopes: []string{
+					"https://www.googleapis.com/auth/devstorage.full_control",
 				},
 			},
 		},

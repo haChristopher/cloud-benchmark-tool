@@ -10,11 +10,11 @@ import (
 	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 )
 
-func UploadBytes(toUpload []byte, orchestratorName string, gcpProjectName string, gcpBucketName string, gclient *storage.Client, ctx context.Context) {
-	wc := gclient.Bucket(gcpBucketName).Object(orchestratorName + "/startup.sh").NewWriter(ctx)
+func UploadBytes(toUpload []byte, fileKey string, gcpProjectName string, gcpBucketName string, gclient *storage.Client, ctx context.Context) {
+	wc := gclient.Bucket(gcpBucketName).Object(fileKey).NewWriter(ctx)
 	wc.ContentType = "text/plain"
 	// make this file public readable
-	wc.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
+	// wc.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
 	wc.Metadata = map[string]string{
 		"x-goog-project-id": gcpProjectName,
 	}
@@ -32,9 +32,9 @@ func UploadBytes(toUpload []byte, orchestratorName string, gcpProjectName string
 	log.Debugln("Finished uploading data to bucket")
 }
 
-func createInstance(name string, orchestratorName string, gcpProjectName string, gcpBucketName string, gcpImageName string, gclient *compute.InstancesClient, ctx context.Context) {
+func CreateInstance(name string, orchestratorName string, gcpProjectName string, gcpBucketName string, gcpImageName string, gclient *compute.InstancesClient, ctx context.Context) {
 	log.Debugln("Creating instance " + name)
-	instance := generateNewInstance(name, orchestratorName, gcpProjectName, gcpBucketName, gcpImageName)
+	instance := GenerateNewInstance(name, orchestratorName, gcpProjectName, gcpBucketName, gcpImageName)
 
 	req := computepb.InsertInstanceRequest{
 		InstanceResource: instance,

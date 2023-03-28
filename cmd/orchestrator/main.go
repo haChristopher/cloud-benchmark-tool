@@ -197,14 +197,15 @@ func main() {
 	currIrPos.IrPos = 0
 	currIrPos.Mu.Unlock()
 
-	// upload startup script
-	uploadBytes(script, ca.InstanceName, cfg.GCPProject, cfg.GCPBucket, gclientStorage, ctx)
+	// upload startup script to bucket
+	fileKey := ca.InstanceName + "/startup.sh"
+	common.UploadBytes(script, fileKey, cfg.GCPProject, cfg.GCPBucket, gclientStorage, ctx)
 
 	listOfInstances := make([]string, 3)
 
 	for j := 0; j < instances; j++ {
 		name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
-		createInstance(name, ca.InstanceName, cfg.GCPProject, cfg.GCPBucket, cfg.GCPImage, gclientCompute, ctx)
+		common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.GCPBucket, cfg.GCPImage, gclientCompute, ctx)
 		listOfInstances = append(listOfInstances, name)
 		wgIrResults.Add(1)
 	}
