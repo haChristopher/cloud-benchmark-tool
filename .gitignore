@@ -25,3 +25,8 @@ credentials/*
 __pycache__/
 *.png
 *.pdf
+
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
