@@ -10,7 +10,9 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"os/exec"
 	"regexp"
+	"strings"
 
 	"cloud.google.com/go/storage"
 	log "github.com/sirupsen/logrus"
@@ -22,6 +24,7 @@ import (
 type (
 	cmdArgs struct {
 		Path                  string
+		Tags                  string
 		BasePackage           string
 		Bed                   int
 		Iterations            int
@@ -36,6 +39,7 @@ type (
 
 func parseArgs() (ca cmdArgs) {
 	flag.StringVar(&(ca.Path), "path", "", "Path of the project under test to benchmark.") // Project is cloned by startup script and path passed here
+	flag.StringVar(&(ca.Tags), "tags", "", "List fo Tags to run benchmark with.")
 	flag.StringVar(&(ca.BasePackage), "base-package", "", "Base package name used for golang imports.")
 	flag.IntVar(&(ca.Bed), "bed", 1, "Benchmark Execution Duration in seconds (single number, no unit).")
 	flag.IntVar(&(ca.Iterations), "iterations", 1, "Number of iterations for a benchmark.")
@@ -81,6 +85,11 @@ func main() {
 	log.Debug(benchmarks)
 	log.Debug("Finished reading benchmarks")
 
+	// Log tags
+	log.Debug("Tags to use: ", ca.Tags)
+	tags := strings.Split(ca.Tags, ",")
+	log.Debugf("Tags for this run: %v", tags)
+
 	// Run benchmarks
 	for i := 1; i <= ca.Sr; i++ {
 		log.Debugf("Begin Suite Run %d of %d", i, ca.Sr)
@@ -88,13 +97,26 @@ func main() {
 		itCounts := make([]int, len(*benchmarks))
 		log.Debugf("Order of this run: %v", order)
 		for j := 0; j < len(order); j++ {
-			curr := order[j]
-			itCounts[curr]++
-			// execute current benchmark
-			log.Debugf("Executing %s with iteration %d of %d", (*benchmarks)[curr].Name, itCounts[curr], ca.Iterations)
-			err := (*benchmarks)[curr].RunBenchmark(ca.Bed, itCounts[curr], i, true)
-			if err != nil {
-				log.Debug(err)
+			for _, tag := range tags {
+				curr := order[j]
+				itCounts[curr]++
+				// execute current benchmark
+				log.Debugf("Executing %s with iteration %d of %d on tag: %s", (*benchmarks)[curr].Name, itCounts[curr], ca.Iterations, tag)
+
+				// checkout tag
+				gitCheckout := exec.Command("git", "checkout", tags[0])
+				gitCheckout.Dir = (*benchmarks)[curr].ProjectPath
+				gitCheckout_err := gitCheckout.Start()
+
+				if gitCheckout_err != nil {
+					log.Debug(err)
+				}
+
+				// Run benchmark
+				err := (*benchmarks)[curr].RunBenchmark(ca.Bed, itCounts[curr], i, true, tag)
+				if err != nil {
+					log.Debug(err)
+				}
 			}
 		}
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)

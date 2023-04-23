@@ -19,6 +19,7 @@ type (
 		BedPos  int
 		ItPos   int
 		SrPos   int
+		Tag     string
 	}
 
 	Benchmark struct {
@@ -50,7 +51,7 @@ func MaskNameRegexp(name string) string {
 	return nameRegexp
 }
 
-func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool) error {
+func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool, tag string) error {
 	cmd := exec.Command("go", "clean", "--cache")
 
 	_, err := cmd.CombinedOutput()
@@ -79,7 +80,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool) 
 	for i := 0; i < bed; i++ {
 		// each iteration on this level is 1s of benchtime, repeat until bed is reached
 		// go tool pprof -nodecount=3000 --nodefraction=0.0 --edgefraction=0.0 -dot cpu.pprof > pprof.dot
-		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-memprofile", "mem/"+bench.Name+"_"+iter+".out", "-cpuprofile", "cpu/"+bench.Name+"_"+iter+".out")
+		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-memprofile", "mem/"+bench.Name+"_"+iter+"_"+tag+".out", "-cpuprofile", "cpu/"+bench.Name+"_"+iter+"_"+tag+".out")
 		cmd.Dir = bench.ProjectPath
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -109,6 +110,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool) 
 					BedPos:  i + 1,
 					ItPos:   itPos,
 					SrPos:   srPos,
+					Tag:     tag,
 				}
 
 				bench.Measurement = append(bench.Measurement, newMsrmnt)

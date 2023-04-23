@@ -27,7 +27,7 @@ type (
 		Name        string
 		Path        string
 		ProjUri     string
-		Tag         string
+		Tags        []string
 		BasePackage string
 		GCPProject  string
 		GCPBucket   string
@@ -119,7 +119,7 @@ func main() {
 
 	// TODO: read benchmarks from db, if no forced reread or db clean
 	log.Debugf("Begin collecting benchmarks of %s", cfg.Name)
-	benchmarks, err := CollectBenchmarks(cfg.Name, cfg.Path, cfg.BasePackage)
+	benchmarks, err := CollectBenchmarks(cfg.Name, cfg.Path, cfg.BasePackage, cfg.Tags)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -175,7 +175,7 @@ func main() {
 	currSetup.Mu.Lock()
 	script := generateStartupScript(
 		cfg.ProjUri,
-		cfg.Tag,
+		cfg.Tags,
 		cfg.BasePackage,
 		currSetup.Bed,
 		currSetup.Iterations,

@@ -3,15 +3,16 @@ package main
 import (
 	"cloud-benchmark-tool/common"
 	"database/sql"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	benchparser "golang.org/x/tools/benchmark/parse"
-	_ "modernc.org/sqlite"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	benchparser "golang.org/x/tools/benchmark/parse"
+	_ "modernc.org/sqlite"
 )
 
 type (
@@ -27,6 +28,7 @@ type (
 		srSetup   int
 		irSetup   int
 		irPos     int
+		tag       string
 	}
 )
 
@@ -67,13 +69,24 @@ func CloseDB() {
 }
 
 // CollectBenchmarks runs all benchmarks of the given project, and gathers their names
-func CollectBenchmarks(projName string, projPath string, basePackage string) (*[]common.Benchmark, error) {
+func CollectBenchmarks(projName string, projPath string, basePackage string, tags []string) (*[]common.Benchmark, error) {
+
 	// register project in DB
 	insertProject(projName, basePackage)
+
+	// checkout tag
+	gitCheckout := exec.Command("git", "checkout", tags[0])
+	gitCheckout.Dir = projPath
+	gitCheckout_err := gitCheckout.Start()
+
+	if gitCheckout_err != nil {
+		return nil, errors.Wrapf(gitCheckout_err, "%#v", gitCheckout.Args)
+	}
 
 	// run all benchmarks and get output
 	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1x", "-bench", ".", "./...")
 	cmd.Dir = projPath
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
@@ -230,6 +243,7 @@ func initializeDB(cleanDb bool) {
 		"sr_pos" INT NOT NULL,
 		"ir_pos" INT NOT NULL,
 		"b_name" TEXT NOT NULL,
+		"tag" TEXT NOT NULL,
 		FOREIGN KEY(b_name) REFERENCES benchmark(b_name)
 	  );`
 
@@ -274,15 +288,15 @@ func insertBenchmark(bName string, subPackage string, pName string) {
 	}
 }
 
-func insertMeasurement(bName string, n int, nsPerOp float64, bedSetup int, itSetup int, srSetup int, irSetup int, bedPos int, itPos int, srPos int, irPos int) {
+func insertMeasurement(bName string, n int, nsPerOp float64, bedSetup int, itSetup int, srSetup int, irSetup int, bedPos int, itPos int, srPos int, irPos int, tag string) {
 	log.Debug("Inserting measurement record ...")
-	insertMeasurementSQL := `INSERT INTO measurement(n, ns_per_op, bed_setup, it_setup, sr_setup, ir_setup, bed_pos, it_pos, sr_pos, ir_pos, b_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	insertMeasurementSQL := `INSERT INTO measurement(n, ns_per_op, bed_setup, it_setup, sr_setup, ir_setup, bed_pos, it_pos, sr_pos, ir_pos, b_name, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	statement, err := db.Prepare(insertMeasurementSQL) // Prepare statement
 	// This is good to avoid SQL injections
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	_, err = statement.Exec(n, nsPerOp, bedSetup, itSetup, srSetup, irSetup, bedPos, itPos, srPos, irPos, bName)
+	_, err = statement.Exec(n, nsPerOp, bedSetup, itSetup, srSetup, irSetup, bedPos, itPos, srPos, irPos, bName, tag)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -320,7 +334,7 @@ func dbQueueConsumer(wg *sync.WaitGroup) {
 		}
 		for i := 0; i < len(elem.benchmark.Measurement); i++ {
 			currMsrmnt := elem.benchmark.Measurement[i]
-			insertMeasurement(elem.benchmark.Name, currMsrmnt.N, currMsrmnt.NsPerOp, elem.bedSetup, elem.itSetup, elem.srSetup, elem.irSetup, currMsrmnt.BedPos, currMsrmnt.ItPos, currMsrmnt.SrPos, elem.irPos)
+			insertMeasurement(elem.benchmark.Name, currMsrmnt.N, currMsrmnt.NsPerOp, elem.bedSetup, elem.itSetup, elem.srSetup, elem.irSetup, currMsrmnt.BedPos, currMsrmnt.ItPos, currMsrmnt.SrPos, elem.irPos, currMsrmnt.Tag)
 		}
 	}
 }
