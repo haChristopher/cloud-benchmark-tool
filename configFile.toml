@@ -4,10 +4,10 @@ name = "commons"
 # Path to the project to benchmark
 path = "/home/chris77772/common/"
 
-projUri = "https://github.com/prometheus/common.git"
+projUri = "https://github.com/pelletier/go-toml.git"
 
 # List of tags to run the benchmark for
-tags = ["v0.42.0", "v0.41.0"]
+tags = ["v2.0.1", "v2.0.3", "v2.0.5"]
 
 basePackage = "github.com/prometheus/common"
 
@@ -22,10 +22,10 @@ gcpImage = "debian-git-go-fixed"
 bed = 1
 
 # Number of executions of single benchmark during a suite run (baseline: 5) (remove)
-it = 3
+it = 5
 
 # Number of suite runs (baseline: 3) (remove)
-sr = 1
+sr = 3
 
 # Number of instance runs (baseline: 3)
 ir = 2

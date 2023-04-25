@@ -59,6 +59,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool, 
 		return errors.Wrapf(err, "%#v: error while running go clean --cache.", cmd.Args)
 	}
 
+	sRun := strconv.Itoa(srPos)
 	iter := strconv.Itoa(itPos)
 
 	// var pprofCmd [4]string
@@ -80,7 +81,8 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool, 
 	for i := 0; i < bed; i++ {
 		// each iteration on this level is 1s of benchtime, repeat until bed is reached
 		// go tool pprof -nodecount=3000 --nodefraction=0.0 --edgefraction=0.0 -dot cpu.pprof > pprof.dot
-		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-memprofile", "mem/"+bench.Name+"_"+iter+"_"+tag+".out", "-cpuprofile", "cpu/"+bench.Name+"_"+iter+"_"+tag+".out")
+		// , "-memprofile", "mem/"+bench.Name+"_"+iter+"_"+tag+"_"+sRun+".out"
+		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-cpuprofile", "cpu/"+bench.Name+"_"+iter+"_"+sRun+"_"+tag+".out")
 		cmd.Dir = bench.ProjectPath
 		out, err := cmd.CombinedOutput()
 		if err != nil {

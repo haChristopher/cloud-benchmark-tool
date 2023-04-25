@@ -100,7 +100,7 @@ func main() {
 			curr := order[j]
 			itCounts[curr]++
 
-			for _, tag := range tags {
+			for _, tag := range shuffle(tags) {
 				// execute current benchmark
 				log.Debugf("Executing %s with iteration %d of %d on tag: %s", (*benchmarks)[curr].Name, itCounts[curr], ca.Iterations, tag)
 
@@ -131,6 +131,11 @@ func main() {
 	log.Debug("Sending measurements to orchestrator")
 	sendMeasurements(benchmarks, ca.OrchestratorIp, ca.MeasurementReportPort)
 	log.Debug("Finished sending measurements")
+}
+
+func shuffle(slice []string) []string {
+	rand.Shuffle(len(slice), func(i, j int) { slice[i], slice[j] = slice[j], slice[i] })
+	return slice
 }
 
 func readBenchmarks(projPath string, ip string, port string) *[]common.Benchmark {
@@ -206,7 +211,7 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 		}
 
 		// use current date in key name
-		key := hostname + "/" + "exp1" + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp2" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }
