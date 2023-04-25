@@ -34,10 +34,11 @@ run_benchmark_runner() {
     cd $WORK_DIR
     chmod +x runner
     git clone %s proj
+	git config --global --add safe.directory /tmp/proj
 	cd proj
 	git fetch --all --tags
 	cd ..
-    ./runner -path $WORK_DIR/proj -tags \"%s\" -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s
+    ./runner -path $WORK_DIR/proj -tags %s -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s
     # do something with the extracted content
 }
 

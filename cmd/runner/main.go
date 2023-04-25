@@ -97,18 +97,19 @@ func main() {
 		itCounts := make([]int, len(*benchmarks))
 		log.Debugf("Order of this run: %v", order)
 		for j := 0; j < len(order); j++ {
+			curr := order[j]
+			itCounts[curr]++
+
 			for _, tag := range tags {
-				curr := order[j]
-				itCounts[curr]++
 				// execute current benchmark
 				log.Debugf("Executing %s with iteration %d of %d on tag: %s", (*benchmarks)[curr].Name, itCounts[curr], ca.Iterations, tag)
 
 				// checkout tag
-				gitCheckout := exec.Command("git", "checkout", tags[0])
+				gitCheckout := exec.Command("git", "checkout", tag)
 				gitCheckout.Dir = (*benchmarks)[curr].ProjectPath
-				gitCheckout_err := gitCheckout.Start()
+				_, gitCheckoutErr := gitCheckout.CombinedOutput()
 
-				if gitCheckout_err != nil {
+				if gitCheckoutErr != nil {
 					log.Debug(err)
 				}
 
@@ -191,6 +192,9 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 
 	// Hostname is used as prefix for the uploaded files
 	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	for _, item := range items {
 		fmt.Println(item.Name())
@@ -201,7 +205,8 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 			continue
 		}
 
-		key := hostname + "/" + item.Name()
+		// use current date in key name
+		key := hostname + "/" + "exp1" + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }

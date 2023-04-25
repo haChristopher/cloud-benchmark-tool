@@ -6,6 +6,7 @@ path = "/home/chris77772/common/"
 
 projUri = "https://github.com/prometheus/common.git"
 
+# List of tags to run the benchmark for
 tags = ["v0.42.0", "v0.41.0"]
 
 basePackage = "github.com/prometheus/common"
