@@ -63,9 +63,11 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 	var testArgs = []string{"test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package}
 
 	if genPprof {
-		// , "-memprofile", "../mem/"+bench.Name+"_"+iter+"_"+tag+"_"+sRun+".out"
-		var pprofArgs = []string{"-cpuprofile", "../cpu/" + bench.Name + "_" + iter + "_" + sRun + "_" + tag + ".out"}
-		testArgs = append(testArgs, pprofArgs...)
+		var cleanName = strings.Replace(bench.Name, "/", "-", -1)
+		var cleanTag = strings.Replace(tag, ".", "-", -1)
+		var pprofCpuArgs = []string{"-cpuprofile", "../cpu/" + cleanName + "_" + iter + "_" + sRun + "_" + cleanTag + ".out"}
+		//var pprofMemArgs = []string{"-memprofile", "../mem/" + cleanName + "_" + iter + "_" + sRun + "_" + cleanTag + ".out"}
+		testArgs = append(testArgs, pprofCpuArgs...)
 	}
 
 	for i := 0; i < bed; i++ {
