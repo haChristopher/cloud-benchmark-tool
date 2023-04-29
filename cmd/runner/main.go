@@ -34,6 +34,7 @@ type (
 		MeasurementReportPort string
 		ProjectName           string
 		BucketName            string
+		GenPprof              bool
 	}
 )
 
@@ -51,6 +52,8 @@ func parseArgs() (ca cmdArgs) {
 
 	flag.StringVar(&(ca.ProjectName), "project-name", "default", "Project of bucket to upload experiment pprof files to.")
 	flag.StringVar(&(ca.BucketName), "bucket-name", "default", "Bucket to upload experiment pprof files to.")
+
+	flag.BoolVar(&(ca.GenPprof), "generate-pprof", false, "Wether to generate pprof files or not.")
 
 	flag.Parse()
 
@@ -72,6 +75,19 @@ func main() {
 	f, err := os.OpenFile("./log.txt", os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		panic(1)
+	}
+
+	if ca.GenPprof {
+		// Create folders for cpu and mem pprof files
+		err = os.MkdirAll("cpu", os.ModePerm)
+		if err != nil {
+			log.Println(err)
+		}
+
+		err = os.MkdirAll("mem", os.ModePerm)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	// Initiate logging
@@ -114,7 +130,7 @@ func main() {
 				}
 
 				// Run benchmark
-				err := (*benchmarks)[curr].RunBenchmark(ca.Bed, itCounts[curr], i, true, tag)
+				err := (*benchmarks)[curr].RunBenchmark(ca.Bed, itCounts[curr], i, tag, ca.GenPprof)
 				if err != nil {
 					log.Debug(err)
 				}
@@ -125,7 +141,7 @@ func main() {
 
 	// Upload pprof files to bucket
 	log.Debug("Uploading pprof files to bucket")
-	uploadPprofFilesToBucket("proj/cpu/", ca.ProjectName, ca.BucketName)
+	uploadPprofFilesToBucket("cpu/", ca.ProjectName, ca.BucketName)
 
 	// Send benchmarks with measurement results back
 	log.Debug("Sending measurements to orchestrator")

@@ -1,8 +1,6 @@
 package common
 
 import (
-	"log"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -51,9 +49,9 @@ func MaskNameRegexp(name string) string {
 	return nameRegexp
 }
 
-func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool, tag string) error {
-	cmd := exec.Command("go", "clean", "--cache")
+func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, genPprof bool) error {
 
+	cmd := exec.Command("go", "clean", "--cache")
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "%#v: error while running go clean --cache.", cmd.Args)
@@ -62,27 +60,17 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool, 
 	sRun := strconv.Itoa(srPos)
 	iter := strconv.Itoa(itPos)
 
-	// var pprofCmd [4]string
-	// if pprof {
-	// 	pprofCmd = [4]string{"-memprofile", bench.Name + ".out", "-cpuprofile", bench.Name + ".out"}
-	// }
+	var testArgs = []string{"test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package}
 
-	// Create directories for pprof output
-	err = os.MkdirAll("proj/cpu", os.ModePerm)
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = os.MkdirAll("proj/mem", os.ModePerm)
-	if err != nil {
-		log.Println(err)
+	if genPprof {
+		// , "-memprofile", "../mem/"+bench.Name+"_"+iter+"_"+tag+"_"+sRun+".out"
+		var pprofArgs = []string{"-cpuprofile", "../cpu/" + bench.Name + "_" + iter + "_" + sRun + "_" + tag + ".out"}
+		testArgs = append(testArgs, pprofArgs...)
 	}
 
 	for i := 0; i < bed; i++ {
 		// each iteration on this level is 1s of benchtime, repeat until bed is reached
-		// go tool pprof -nodecount=3000 --nodefraction=0.0 --edgefraction=0.0 -dot cpu.pprof > pprof.dot
-		// , "-memprofile", "mem/"+bench.Name+"_"+iter+"_"+tag+"_"+sRun+".out"
-		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-cpuprofile", "cpu/"+bench.Name+"_"+iter+"_"+sRun+"_"+tag+".out")
+		cmd := exec.Command("go", testArgs...)
 		cmd.Dir = bench.ProjectPath
 		out, err := cmd.CombinedOutput()
 		if err != nil {

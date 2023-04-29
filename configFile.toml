@@ -22,14 +22,17 @@ gcpBucket = "master-thesis-test-bucket"
 # This tool needs a custom linux image with access to the Go compiler suite and git
 gcpImage = "debian-git-go-fixed"
 
+# When true pprof files are generated and saved to disk
+genPprof = true
+
 # Benchmark Execution Duration (baseline: 1s) (remove)
 bed = 1
 
 # Number of executions of single benchmark during a suite run (baseline: 5) (remove)
-it = 5
+it = 3
 
 # Number of suite runs (baseline: 3) (remove)
-sr = 3
+sr = 1
 
 # Number of instance runs (baseline: 3)
 ir = 2

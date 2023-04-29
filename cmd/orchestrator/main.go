@@ -34,6 +34,7 @@ type (
 		GCPProject  string
 		GCPBucket   string
 		GCPImage    string
+		GenPprof    bool
 		Bed         int
 		It          int
 		Sr          int
@@ -187,6 +188,7 @@ func main() {
 		ca.MeasurementReportPort,
 		cfg.GCPProject,
 		cfg.GCPBucket,
+		cfg.GenPprof,
 	)
 	instances := currSetup.Ir
 	log.Debugf("Experiment Start\nSetup: BED = %d, It = %d, SR = %d, IR = %d", currSetup.Bed, currSetup.Iterations, currSetup.Sr, currSetup.Ir)
