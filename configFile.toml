@@ -2,14 +2,18 @@
 name = "commons"
 
 # Path to the project to benchmark
-path = "/home/chris77772/common/"
+path = "/home/chris77772/go-toml/"
 
 projUri = "https://github.com/pelletier/go-toml.git"
 
 # List of tags to run the benchmark for
 tags = ["v2.0.1", "v2.0.3", "v2.0.5"]
 
-basePackage = "github.com/prometheus/common"
+# Zone and region to start instances in
+zone = "europe-west6-c"
+region = "europe-west6"
+
+basePackage = "github.com/pelletier/go-toml"
 
 gcpProject = "master-thesis-benchmark"
 

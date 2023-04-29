@@ -32,19 +32,20 @@ func UploadBytes(toUpload []byte, fileKey string, gcpProjectName string, gcpBuck
 	log.Debugln("Finished uploading data to bucket")
 }
 
-func CreateInstance(name string, orchestratorName string, gcpProjectName string, gcpBucketName string, gcpImageName string, gclient *compute.InstancesClient, ctx context.Context) {
+func CreateInstance(name string, orchestratorName string, gcpProjectName string, gcpRegion string, gcpZone string, gcpBucketName string, gcpImageName string, gclient *compute.InstancesClient, ctx context.Context) {
 	log.Debugln("Creating instance " + name)
-	instance := GenerateNewInstance(name, orchestratorName, gcpProjectName, gcpBucketName, gcpImageName)
+	instance := GenerateNewInstance(name, orchestratorName, gcpProjectName, gcpRegion, gcpZone, gcpBucketName, gcpImageName)
 
 	req := computepb.InsertInstanceRequest{
 		InstanceResource: instance,
 		Project:          gcpProjectName,
-		Zone:             "europe-west3-c",
+		Zone:             gcpZone,
 	}
 
 	op, err := gclient.Insert(ctx, &req)
 	if err != nil {
 		log.Fatalln(err)
+
 	}
 
 	err = op.Wait(ctx)
@@ -54,11 +55,12 @@ func CreateInstance(name string, orchestratorName string, gcpProjectName string,
 	log.Debugln("Finished creating instance " + name)
 }
 
-func shutdownAllInstances(toShutdown *[]string, gcpProjectName string, gclient *compute.InstancesClient, ctx context.Context) {
+func ShutdownAllInstances(toShutdown *[]string, gcpProjectName string, gcpZone string, gclient *compute.InstancesClient, ctx context.Context) {
 	log.Debugln("Removing all instances")
+
 	listReq := computepb.ListInstancesRequest{
 		Project: gcpProjectName,
-		Zone:    "europe-west3-c",
+		Zone:    gcpZone,
 	}
 
 	it := gclient.List(ctx, &listReq)
@@ -78,7 +80,7 @@ func shutdownAllInstances(toShutdown *[]string, gcpProjectName string, gclient *
 			delReq := computepb.DeleteInstanceRequest{
 				Instance: *instance.Name,
 				Project:  gcpProjectName,
-				Zone:     "europe-west3-c",
+				Zone:     gcpZone,
 			}
 			op, err := gclient.Delete(ctx, &delReq)
 			if err != nil {

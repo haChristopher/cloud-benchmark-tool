@@ -28,6 +28,8 @@ type (
 		Path        string
 		ProjUri     string
 		Tags        []string
+		Zone        string
+		Region      string
 		BasePackage string
 		GCPProject  string
 		GCPBucket   string
@@ -205,7 +207,7 @@ func main() {
 
 	for j := 0; j < instances; j++ {
 		name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
-		common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.GCPBucket, cfg.GCPImage, gclientCompute, ctx)
+		common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.Region, cfg.Zone, cfg.GCPBucket, cfg.GCPImage, gclientCompute, ctx)
 		listOfInstances = append(listOfInstances, name)
 		wgIrResults.Add(1)
 	}
@@ -214,7 +216,7 @@ func main() {
 	// wait for results
 	wgIrResults.Wait()
 	// shutdown instances
-	// shutdownAllInstances(&listOfInstances, cfg.GCPProject, gclientCompute, ctx)
+	// common.ShutdownAllInstances(&listOfInstances, cfg.GCPProject, cfg.Zone, gclientCompute, ctx)
 	// END EXPERIMENT
 
 	// Only end when Crtl+C is pressed
