@@ -112,6 +112,7 @@ func main() {
 		order := *common.CreateExtendedPerm(len(*benchmarks), ca.Iterations)
 		itCounts := make([]int, len(*benchmarks))
 		log.Debugf("Order of this run: %v", order)
+
 		for j := 0; j < len(order); j++ {
 			curr := order[j]
 			itCounts[curr]++
@@ -227,7 +228,7 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 		}
 
 		// use current date in key name
-		key := "exp2" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp2Clean" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }

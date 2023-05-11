@@ -35,7 +35,7 @@ run_benchmark_runner() {
     cd $WORK_DIR
     chmod +x runner
     git clone %s proj
-	git config --global --add safe.directory /tmp/proj
+	git config --global --add safe.directory '*'
 	cd proj
 	git fetch --all --tags
 	cd ..

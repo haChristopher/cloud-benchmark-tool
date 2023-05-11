@@ -30,3 +30,6 @@ __pycache__/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Logs
+log.txt

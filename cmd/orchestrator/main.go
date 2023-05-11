@@ -91,8 +91,14 @@ func main() {
 	// Seed rand with current time (running with no seed gives deterministic results)
 	rand.Seed(time.Now().UnixNano())
 
+	// Create log file
+	f, fileCreationErr := os.OpenFile("./log.txt", os.O_WRONLY|os.O_CREATE, 0755)
+	if fileCreationErr != nil {
+		panic(1)
+	}
+
 	// Initiate logging
-	log.SetOutput(os.Stdout)
+	log.SetOutput(f)
 	log.SetLevel(log.DebugLevel)
 
 	// parse cmd arguments
@@ -191,6 +197,7 @@ func main() {
 		cfg.GenPprof,
 	)
 	instances := currSetup.Ir
+
 	log.Debugf("Experiment Start\nSetup: BED = %d, It = %d, SR = %d, IR = %d", currSetup.Bed, currSetup.Iterations, currSetup.Sr, currSetup.Ir)
 	currSetup.Mu.Unlock()
 	/*fT, _ := os.Create("tmp")
