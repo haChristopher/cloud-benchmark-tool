@@ -1,22 +1,19 @@
 ######### Project Configuration #########
 
-name = "commons"
-
-# Go Version will be set using gvm
-goVersion = "1.18"
+name = "influxdb"
 
 # Path to the project to benchmark
 path = "/home/chris77772/go-toml/"
 
-projUri = "https://github.com/pelletier/go-toml.git"
+projUri = https://github.com/influxdata/influxdb.git
 
 # List of tags to run the benchmark for
-tags = ["v2.0.3", "v2.0.3", "v2.0.5"]
+tags = ["v2.7.1"]
 
-basePackage = "github.com/pelletier/go-toml/v2"
+basePackage = "github.com/influxdata/influxdb/v2"
 
 # List of commands to run before the benchmark inside the project directory
-commands=["make"]
+commands=["gvm install go1.18", "gvm use go1.18 --default", "make"]
 
 # Environment variables set for the project
 envs=["GO111MODULE=on"]

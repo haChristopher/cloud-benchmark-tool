@@ -18,7 +18,6 @@ Absolute Minimalkonfiguration:
 finde config mit ir 1, verifiziere mit ir 2 und 3
 
 
-
 # Setup
 
 Create google cloud Project
@@ -61,3 +60,16 @@ sudo apt install graphviz gv
 ```
 
 go test -benchtime 1s -bench ^BenchmarkCreateBuildInfo$ ./expfmt -memprofile BenchmarkCreateBuildInfo.out -cpuprofile BenchmarkCreateBuildInfo.out
+
+
+# Configuration
+
+Changing go version, if gvm is installed on the image, you can use the commands config variable
+```
+commands=["gvm install go1.18", "gvm use go1.18 --default"]
+```
+
+Setting environment variables for project setup and benchmark execution
+```
+envs=["GO111MODULE=on"]
+```
