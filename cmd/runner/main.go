@@ -228,7 +228,7 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 		}
 
 		// use current date in key name
-		key := "exp2Clean" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp3" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }

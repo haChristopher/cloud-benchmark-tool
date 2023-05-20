@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os/exec"
 	"sync"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -28,12 +29,15 @@ type (
 		Path        string
 		ProjUri     string
 		Tags        []string
+		Commands    []string
+		Envs        []string
 		Zone        string
 		Region      string
 		BasePackage string
 		GCPProject  string
 		GCPBucket   string
 		GCPImage    string
+		GcpDiskSize int
 		GenPprof    bool
 		Bed         int
 		It          int
@@ -116,6 +120,21 @@ func main() {
 
 	log.Debugf("Finished reading %s", ca.ConfigFile)
 	log.Debugln(cfg)
+
+	// Set envs before running any commands or benchmarks
+	for _, env := range cfg.Envs {
+		os.Setenv(env, "1")
+	}
+
+	// Run commands for project Setup
+	for _, command := range cfg.Commands {
+		cmd := exec.Command("sh", "-c", command)
+		cmd.Dir = cfg.Path
+		_, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
 
 	// TODO: write to and read from DB
 	// --- Connect to DB (sqlite) ---
@@ -216,7 +235,7 @@ func main() {
 
 	for j := 0; j < instances; j++ {
 		name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
-		common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.Region, cfg.Zone, cfg.GCPBucket, cfg.GCPImage, gclientCompute, ctx)
+		common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.Region, cfg.Zone, cfg.GCPBucket, cfg.GCPImage, cfg.GcpDiskSize, gclientCompute, ctx)
 		listOfInstances = append(listOfInstances, name)
 		wgIrResults.Add(1)
 	}

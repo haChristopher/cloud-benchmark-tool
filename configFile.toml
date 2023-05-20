@@ -1,5 +1,9 @@
-# Name of the project
+######### Project Configuration #########
+
 name = "commons"
+
+# Go Version will be set using gvm
+goVersion = "1.18"
 
 # Path to the project to benchmark
 path = "/home/chris77772/go-toml/"
@@ -7,32 +11,44 @@ path = "/home/chris77772/go-toml/"
 projUri = "https://github.com/pelletier/go-toml.git"
 
 # List of tags to run the benchmark for
-tags = ["v2.0.1", "v2.0.3", "v2.0.5"]
+tags = ["v2.0.3", "v2.0.3", "v2.0.5"]
+
+basePackage = "github.com/pelletier/go-toml/v2"
+
+# List of commands to run before the benchmark inside the project directory
+commands=["make"]
+
+# Environment variables set for the project
+envs=["GO111MODULE=on"]
+
+
+######### GCP Configuration #########
+
+gcpProject = "master-thesis-benchmark"
+gcpBucket = "master-thesis-test-bucket"
+gcpDiskSize = 20
+
+# This tool needs a custom linux image with access to the Go compiler suite and git
+gcpImage = "debian-git-go-fixed"
 
 # Zone and region to start instances in
 zone = "europe-west6-c"
 region = "europe-west6"
 
-basePackage = "github.com/pelletier/go-toml"
 
-gcpProject = "master-thesis-benchmark"
-
-gcpBucket = "master-thesis-test-bucket"
-
-# This tool needs a custom linux image with access to the Go compiler suite and git
-gcpImage = "debian-git-go-fixed"
+######### Benchmark Configuration #########
 
 # When true pprof files are generated and saved to disk
-genPprof = true
+genPprof = false
 
 # Benchmark Execution Duration (baseline: 1s) (remove)
-bed = 1
+bed = 10
 
 # Number of executions of single benchmark during a suite run (baseline: 5) (remove)
-it = 3
+it = 5
 
 # Number of suite runs (baseline: 3) (remove)
-sr = 1
+sr = 3
 
 # Number of instance runs (baseline: 3)
-ir = 2
+ir = 3
