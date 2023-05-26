@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os/exec"
 	"sync"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -103,6 +102,7 @@ func main() {
 
 	// Initiate logging
 	log.SetOutput(f)
+	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
 	// parse cmd arguments
@@ -121,20 +121,11 @@ func main() {
 	log.Debugf("Finished reading %s", ca.ConfigFile)
 	log.Debugln(cfg)
 
-	// Set envs before running any commands or benchmarks
-	for _, env := range cfg.Envs {
-		os.Setenv(env, "1")
-	}
+	// Envs
+	common.SetEnvironmentVariables(cfg.Envs)
 
-	// Run commands for project Setup
-	for _, command := range cfg.Commands {
-		cmd := exec.Command("sh", "-c", command)
-		cmd.Dir = cfg.Path
-		_, err := cmd.CombinedOutput()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}
+	// Commands
+	common.RunCommands(cfg.Commands, cfg.Path)
 
 	// TODO: write to and read from DB
 	// --- Connect to DB (sqlite) ---
@@ -153,6 +144,8 @@ func main() {
 	}
 	log.Debugf("Finished collecting benchmarks of %s", cfg.Name)
 	log.Debugf("Found benchmarks: %+v", *benchmarks)
+
+	// os.Exit(1)
 
 	// Start server endpoints
 
@@ -214,6 +207,8 @@ func main() {
 		cfg.GCPProject,
 		cfg.GCPBucket,
 		cfg.GenPprof,
+		cfg.Envs,
+		cfg.Commands,
 	)
 	instances := currSetup.Ir
 

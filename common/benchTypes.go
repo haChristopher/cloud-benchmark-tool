@@ -60,7 +60,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 	sRun := strconv.Itoa(srPos)
 	iter := strconv.Itoa(itPos)
 
-	var testArgs = []string{"test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package}
+	var testArgs = []string{"test", "-benchtime", "15s", "-bench", bench.NameRegexp, bench.Package}
 
 	if genPprof {
 		var cleanName = strings.Replace(bench.Name, "/", "-", -1)
@@ -75,6 +75,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 		cmd := exec.Command("go", testArgs...)
 		cmd.Dir = bench.ProjectPath
 		out, err := cmd.CombinedOutput()
+
 		if err != nil {
 			return errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
 		}

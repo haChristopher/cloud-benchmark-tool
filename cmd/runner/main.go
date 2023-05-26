@@ -35,6 +35,8 @@ type (
 		ProjectName           string
 		BucketName            string
 		GenPprof              bool
+		Envs                  string
+		Commands              string
 	}
 )
 
@@ -54,6 +56,8 @@ func parseArgs() (ca cmdArgs) {
 	flag.StringVar(&(ca.BucketName), "bucket-name", "default", "Bucket to upload experiment pprof files to.")
 
 	flag.BoolVar(&(ca.GenPprof), "generate-pprof", false, "Wether to generate pprof files or not.")
+	flag.StringVar(&(ca.Envs), "envs", "", "List of environment variables to set.")
+	flag.StringVar(&(ca.Commands), "commands", "", "List commands to execute before the benchmark in the project dir.")
 
 	flag.Parse()
 
@@ -105,6 +109,15 @@ func main() {
 	log.Debug("Tags to use: ", ca.Tags)
 	tags := strings.Split(ca.Tags, ",")
 	log.Debugf("Tags for this run: %v", tags)
+
+	// Set Envs
+	envs := strings.Split(ca.Envs, ",")
+	common.SetEnvironmentVariables(envs)
+
+	// Run Commands
+	log.Debug("Commands to run: ", ca.Commands)
+	commands := strings.Split(ca.Commands, ",")
+	common.RunCommands(commands, ca.Path)
 
 	// Run benchmarks
 	for i := 1; i <= ca.Sr; i++ {
@@ -228,7 +241,7 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 		}
 
 		// use current date in key name
-		key := "exp3" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp4" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }

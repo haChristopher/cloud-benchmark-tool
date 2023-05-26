@@ -22,6 +22,8 @@ func generateStartupScript(
 	projectName string,
 	bucketName string,
 	genPprof bool,
+	envs []string,
+	commands []string,
 ) []byte {
 
 	scriptFormatString := `#!/bin/bash
@@ -39,7 +41,7 @@ run_benchmark_runner() {
 	cd proj
 	git fetch --all --tags
 	cd ..
-    ./runner -path $WORK_DIR/proj -tags %s -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s -generate-pprof %t
+    ./runner -path $WORK_DIR/proj -tags %s -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s -generate-pprof %t -envs %s -commands %s
     # do something with the extracted content
 }
 
@@ -71,5 +73,7 @@ __PAYLOAD_BEGINS__
 		msrmntReportPort,
 		projectName,
 		bucketName,
-		genPprof)), runnerBytes...)
+		genPprof,
+		strings.Join(envs, ","),
+		strings.Join(commands, ","))), runnerBytes...)
 }

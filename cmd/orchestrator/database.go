@@ -105,6 +105,9 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 	// default package
 	pkg := "./"
 
+	// Regex for extracting benchmark configuration
+	regex_config, _ := regexp.Compile(`/?-?\d{1-2}((-\d{1,2}){1,4})?$`)
+
 	// parse output from go test
 	for i := 0; i < len(lines); i++ {
 		isBench, err := regexp.MatchString("^Benchmark", lines[i])
@@ -120,9 +123,9 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 
 			// go test appends -#cpu to every name, and the parser does not remove this suffix
 			// since go test does not consider the suffix part of the name, it has to be removed
-			nameSplit := strings.Split(b.Name, "-")               // split at -
-			nameSuffix := "-" + nameSplit[len(nameSplit)-1]       // get last position (number of cpus used in run)
-			nameTrimmed := strings.TrimSuffix(b.Name, nameSuffix) // remove suffix
+			configuration := regex_config.FindString(b.Name)
+			nameTrimmed := strings.TrimSuffix(b.Name, configuration) // remove suffix
+			configuration = strings.TrimPrefix(configuration, "/")   // remove leading /
 
 			benchmarks = append(benchmarks, common.Benchmark{
 				Name:        nameTrimmed,
@@ -132,8 +135,7 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 				Measurement: []common.Measurement{},
 			})
 
-			// TODO: register benchmark in DB
-			insertBenchmark(nameTrimmed, pkg, projName)
+			insertBenchmark(nameTrimmed, pkg, projName, configuration)
 
 			continue // go to next iteration
 		}
@@ -217,8 +219,9 @@ func initializeDB(cleanDb bool) {
 		"b_name" TEXT NOT NULL,
 		"subpackage" TEXT NOT NULL,
 		"p_name" TEXT NOT NULL,
+		"config" TEXT,
 		FOREIGN KEY(p_name) REFERENCES project(p_name),
-		CONSTRAINT PK_Bench PRIMARY KEY (b_name,subpackage,p_name)
+		CONSTRAINT PK_Bench PRIMARY KEY (b_name,subpackage,p_name, config)
 	  );`
 
 	log.Debug("Create benchmark table")
@@ -274,15 +277,15 @@ func insertProject(pName string, basePackage string) {
 	}
 }
 
-func insertBenchmark(bName string, subPackage string, pName string) {
+func insertBenchmark(bName string, subPackage string, pName string, config string) {
 	log.Debug("Inserting benchmark record ...")
-	insertBenchmarkSQL := `INSERT INTO benchmark(b_name, subpackage, p_name) VALUES (?, ?, ?)`
+	insertBenchmarkSQL := `INSERT INTO benchmark(b_name, subpackage, p_name, config) VALUES (?, ?, ?, ?)`
 	statement, err := db.Prepare(insertBenchmarkSQL) // Prepare statement
 	// This is good to avoid SQL injections
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	_, err = statement.Exec(bName, subPackage, pName)
+	_, err = statement.Exec(bName, subPackage, pName, config)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
