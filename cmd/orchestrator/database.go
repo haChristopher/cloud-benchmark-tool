@@ -84,7 +84,8 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 	}
 
 	// run all benchmarks and get output
-	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1x", "-bench", ".", "./...")
+	// cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1x", "-bench", ".", "./...")
+	cmd := exec.Command("go", "test", "-list", "^Benchmark.*", "./...")
 	cmd.Dir = projPath
 
 	out, err := cmd.CombinedOutput()
@@ -127,6 +128,15 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 			nameTrimmed := strings.TrimSuffix(b.Name, configuration) // remove suffix
 			configuration = strings.TrimPrefix(configuration, "/")   // remove leading /
 
+			err = insertBenchmark(nameTrimmed, pkg, projName, configuration)
+			if err != nil {
+				// Skip benchmark if it already exists
+				if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
+					return nil, errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
+				}
+				continue // go to next iteration
+			}
+
 			benchmarks = append(benchmarks, common.Benchmark{
 				Name:        nameTrimmed,
 				NameRegexp:  common.MaskNameRegexp(nameTrimmed), // Name needs special format for execution
@@ -134,8 +144,6 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 				ProjectPath: projPath,
 				Measurement: []common.Measurement{},
 			})
-
-			insertBenchmark(nameTrimmed, pkg, projName, configuration)
 
 			continue // go to next iteration
 		}
@@ -221,7 +229,7 @@ func initializeDB(cleanDb bool) {
 		"p_name" TEXT NOT NULL,
 		"config" TEXT,
 		FOREIGN KEY(p_name) REFERENCES project(p_name),
-		CONSTRAINT PK_Bench PRIMARY KEY (b_name,subpackage,p_name, config)
+		CONSTRAINT PK_Bench PRIMARY KEY (b_name, subpackage, p_name)
 	  );`
 
 	log.Debug("Create benchmark table")
@@ -277,7 +285,7 @@ func insertProject(pName string, basePackage string) {
 	}
 }
 
-func insertBenchmark(bName string, subPackage string, pName string, config string) {
+func insertBenchmark(bName string, subPackage string, pName string, config string) error {
 	log.Debug("Inserting benchmark record ...")
 	insertBenchmarkSQL := `INSERT INTO benchmark(b_name, subpackage, p_name, config) VALUES (?, ?, ?, ?)`
 	statement, err := db.Prepare(insertBenchmarkSQL) // Prepare statement
@@ -285,9 +293,13 @@ func insertBenchmark(bName string, subPackage string, pName string, config strin
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
+
+	// Insert benchmark into DB
 	_, err = statement.Exec(bName, subPackage, pName, config)
 	if err != nil {
-		log.Fatalln(err.Error())
+		// log.Fatalln(err.Error())
+		// return erro could be that the benchmark already exists (different configurations)
+		return err
 	}
 }
 
