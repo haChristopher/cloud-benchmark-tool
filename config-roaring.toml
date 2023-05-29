@@ -46,4 +46,6 @@ it = 1
 sr = 1
 
 # Number of instance runs (baseline: 3)
-ir = 3
+ir = 2
+
+# IMPORTANT check benchtime inside runner for call graphs

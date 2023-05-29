@@ -142,10 +142,9 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	log.Debugf("Finished collecting benchmarks of %s", cfg.Name)
-	log.Debugf("Found benchmarks: %+v", *benchmarks)
 
-	// os.Exit(1)
+	log.Debugf("Finished collecting benchmarks of %s", cfg.Name)
+	log.Debugf("Found %d benchmarks: %+v", len(*benchmarks), *benchmarks)
 
 	// Start server endpoints
 
@@ -238,8 +237,10 @@ func main() {
 
 	// wait for results
 	wgIrResults.Wait()
+
 	// shutdown instances
-	// common.ShutdownAllInstances(&listOfInstances, cfg.GCPProject, cfg.Zone, gclientCompute, ctx)
+	common.ShutdownAllInstances(&listOfInstances, cfg.GCPProject, cfg.Zone, gclientCompute, ctx)
+
 	// END EXPERIMENT
 
 	// Only end when Crtl+C is pressed

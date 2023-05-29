@@ -83,9 +83,10 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 		return nil, errors.Wrapf(gitCheckout_err, "%#v", gitCheckout.Args)
 	}
 
-	// run all benchmarks and get output
-	// cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1x", "-bench", ".", "./...")
-	cmd := exec.Command("go", "test", "-list", "^Benchmark.*", "./...")
+	// This works for topl level benchmarks but not for subbenchmarks
+	// cmd := exec.Command("go", "test", "./...", "-list", "^Benchmark.*")
+
+	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1ns", "-bench", ".", "./...", "-run", "^$")
 	cmd.Dir = projPath
 
 	out, err := cmd.CombinedOutput()
@@ -107,11 +108,14 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 	pkg := "./"
 
 	// Regex for extracting benchmark configuration
-	regex_config, _ := regexp.Compile(`/?-?\d{1-2}((-\d{1,2}){1,4})?$`)
+	// regex_config, _ := regexp.Compile(`/?-?\d{1-2}((-\d{1,2}){1,4})?$`)
+	regex_bench, _ := regexp.Compile(`^Benchmark`)
 
 	// parse output from go test
 	for i := 0; i < len(lines); i++ {
-		isBench, err := regexp.MatchString("^Benchmark", lines[i])
+		isBench := regex_bench.FindStringIndex(lines[i]) != nil
+
+		// isBench, err := regexp.MatchString("^Benchmark", lines[i])
 		if err != nil {
 			return nil, errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
 		}
@@ -124,9 +128,12 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 
 			// go test appends -#cpu to every name, and the parser does not remove this suffix
 			// since go test does not consider the suffix part of the name, it has to be removed
-			configuration := regex_config.FindString(b.Name)
-			nameTrimmed := strings.TrimSuffix(b.Name, configuration) // remove suffix
-			configuration = strings.TrimPrefix(configuration, "/")   // remove leading /
+			//configuration := regex_config.FindString(b.Name)
+			//nameTrimmed := strings.TrimSuffix(b.Name, configuration) // remove suffix
+			//configuration = strings.TrimPrefix(configuration, "/")   // remove leading /
+
+			nameTrimmed := b.Name
+			configuration := ""
 
 			err = insertBenchmark(nameTrimmed, pkg, projName, configuration)
 			if err != nil {
@@ -166,6 +173,7 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 			pkg = after
 		} // discard no match
 	}
+
 	return &benchmarks, nil
 }
 
@@ -301,6 +309,8 @@ func insertBenchmark(bName string, subPackage string, pName string, config strin
 		// return erro could be that the benchmark already exists (different configurations)
 		return err
 	}
+
+	return nil
 }
 
 func insertMeasurement(bName string, n int, nsPerOp float64, bedSetup int, itSetup int, srSetup int, irSetup int, bedPos int, itPos int, srPos int, irPos int, tag string) {
