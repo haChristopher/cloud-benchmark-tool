@@ -84,9 +84,9 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 	}
 
 	// This works for topl level benchmarks but not for subbenchmarks
-	// cmd := exec.Command("go", "test", "./...", "-list", "^Benchmark.*")
+	// cmd := exec.Command("go", "test", "./...", "-list", "^Benchmark.*", "-run", "^$", "-cpu", "1")
 
-	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1ns", "-bench", ".", "./...", "-run", "^$")
+	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1ns", "-bench", ".", "./...", "-run", "^$", "-cpu", "1")
 	cmd.Dir = projPath
 
 	out, err := cmd.CombinedOutput()
