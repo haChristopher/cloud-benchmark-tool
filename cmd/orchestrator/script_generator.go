@@ -40,8 +40,9 @@ run_benchmark_runner() {
 	git config --global --add safe.directory '*'
 	cd proj
 	git fetch --all --tags
+	git checkout tags/%s
 	cd ..
-    ./runner -path $WORK_DIR/proj -tags %s -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s -generate-pprof %t -envs %s -commands %s
+    ./runner -path $WORK_DIR/proj -tags %s -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s -generate-pprof=%t -envs %s -commands %s
     # do something with the extracted content
 }
 
@@ -63,6 +64,7 @@ __PAYLOAD_BEGINS__
 	return append([]byte(fmt.Sprintf(
 		scriptFormatString,
 		projUri,
+		tags[0],
 		strings.Join(tags, ","),
 		basePackage,
 		bed,

@@ -18,7 +18,6 @@ commands=[]
 # Environment variables set for the project
 envs=[]
 
-
 ######### GCP Configuration #########
 
 gcpProject = "master-thesis-benchmark"
@@ -34,7 +33,7 @@ region = "europe-west6"
 
 ######### Benchmark Configuration #########
 # When true pprof files are generated and saved to disk
-genPprof = true
+genPprof = false
 
 # Benchmark Execution Duration (baseline: 1s) (bed * 1s) 
 bed = 1
@@ -46,6 +45,6 @@ it = 1
 sr = 1
 
 # Number of instance runs (baseline: 3)
-ir = 2
+ir = 1
 
 # IMPORTANT check benchtime inside runner for call graphs

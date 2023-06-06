@@ -63,10 +63,8 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 	iter := strconv.Itoa(itPos)
 
 	// Setting cpu to 1 to make parsing of benchmark names easier
-	var testArgs = []string{"test", "-benchtime", "10s", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
+	var testArgs = []string{"test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
 
-	// TODO This needs to be fixed
-	log.Debug("genPprof: ", genPprof)
 	if genPprof {
 		var cleanName = strings.Replace(bench.Name, "/", "-", -1)
 		var cleanTag = strings.Replace(tag, ".", "-", -1)
@@ -110,6 +108,8 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 					SrPos:   srPos,
 					Tag:     tag,
 				}
+
+				log.Debugf("Found measurement: %v", newMsrmnt)
 
 				bench.Measurement = append(bench.Measurement, newMsrmnt)
 			}
