@@ -11,6 +11,9 @@ import (
 	benchparser "golang.org/x/tools/benchmark/parse"
 )
 
+// CONSTANTS
+var REGEX_BENCH = regexp.MustCompile(`^Benchmark`)
+
 type (
 	Measurement struct {
 		N       int
@@ -63,7 +66,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 	iter := strconv.Itoa(itPos)
 
 	// Setting cpu to 1 to make parsing of benchmark names easier
-	var testArgs = []string{"test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
+	var testArgs = []string{"test", "-benchtime", "1s", "-count", "5", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
 
 	if genPprof {
 		var cleanName = strings.Replace(bench.Name, "/", "-", -1)
@@ -86,12 +89,9 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 		// split output into lines
 		lines := strings.Split(string(out), "\n")
 
-		// parse output
+		// parse output, this also wors for benchmarks with multiple measurements (-count > 1)
 		for j := 0; j < len(lines); j++ {
-			isBench, err := regexp.MatchString("^Benchmark", lines[j])
-			if err != nil {
-				return errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
-			}
+			isBench := REGEX_BENCH.FindStringIndex(lines[j]) != nil
 
 			if isBench {
 				b, err := benchparser.ParseLine(lines[j])

@@ -8,7 +8,7 @@ path = "/home/chris77772/roaring/"
 projUri = "https://github.com/RoaringBitmap/roaring.git"
 
 # List of tags to run the benchmark for
-tags = ["v1.3.0"]
+tags = ["v1.3.0", "v1.2.3"]
 
 basePackage = "github.com/RoaringBitmap/roaring"
 
@@ -45,6 +45,6 @@ it = 1
 sr = 1
 
 # Number of instance runs (baseline: 3)
-ir = 1
+ir = 2
 
 # IMPORTANT check benchtime inside runner for call graphs
