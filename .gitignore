@@ -31,5 +31,8 @@ __pycache__/
 .AppleDouble
 .LSOverride
 
-# Logs
-log.txt
+# Logfiles
+log*.txt
+
+# Database files
+*.db

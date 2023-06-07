@@ -3,7 +3,7 @@
 name = "roaring"
 
 # Path to the project to benchmark
-path = "/home/chris77772/roaring/"
+path = "/Users/christopher/Uni/MasterThesis/repositories/roaring/"
 
 projUri = "https://github.com/RoaringBitmap/roaring.git"
 
@@ -17,7 +17,6 @@ commands=[]
 
 # Environment variables set for the project
 envs=[]
-
 
 ######### GCP Configuration #########
 

@@ -43,16 +43,20 @@ type (
 		Sr          int
 		Ir          int
 	}
+
 	cmdArgs struct {
 		CleanDB               bool
+		RunLocal              bool
 		CredentialsFile       string
 		ConfigFile            string
 		SqliteFile            string
+		BenchRegex            string
 		InstanceName          string
 		Ip                    string
 		BenchmarkListPort     string
 		MeasurementReportPort string
 	}
+
 	setup struct {
 		Bed        int
 		Iterations int
@@ -60,6 +64,7 @@ type (
 		Ir         int
 		Mu         sync.Mutex
 	}
+
 	irPosCounter struct {
 		IrPos int
 		Mu    sync.Mutex
@@ -74,10 +79,12 @@ var currIrPos irPosCounter
 func parseArgs() cmdArgs {
 	var ca cmdArgs
 	flag.BoolVar(&(ca.CleanDB), "clean-db", false, "Clean database, i.e., drop all tables related to benchmark data collection.")
+	flag.BoolVar(&(ca.RunLocal), "local", false, "Runs locally without creating instances, connecting to local runners.")
 	flag.StringVar(&(ca.CredentialsFile), "credentials", "creds.json", "Path to the credentials.json for GCP.")
 	flag.StringVar(&(ca.ConfigFile), "configFile", "configFile.toml", "Path to the configFile.toml file.")
 	flag.StringVar(&(ca.SqliteFile), "db", "database.db", "Path to the sqlite3 database file.")
 	flag.StringVar(&(ca.InstanceName), "instance-name", "orchestrator", "GCP instance name of the orchestrator, so that it does not shut itself down.")
+	flag.StringVar(&(ca.BenchRegex), "bench", ".", "Regex to restrict benchmarks to run, default is run all.")
 
 	flag.StringVar(&(ca.Ip), "ip", "127.0.0.1", "IP address of this node.")
 	flag.StringVar(&(ca.BenchmarkListPort), "benchmark-list-port", "5000", "Port, under which the orchestrator reports the list of benchmarks.")
@@ -85,8 +92,7 @@ func parseArgs() cmdArgs {
 
 	flag.Parse()
 
-	// TODO fix multiple slashes in paths
-
+	// [] TODO fix multiple slashes in paths
 	return ca
 }
 
@@ -95,7 +101,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// Create log file
-	f, fileCreationErr := os.OpenFile("./log.txt", os.O_WRONLY|os.O_CREATE, 0755)
+	f, fileCreationErr := os.OpenFile("./log-orchastrator.txt", os.O_WRONLY|os.O_CREATE, 0755)
 	if fileCreationErr != nil {
 		panic(1)
 	}
@@ -133,12 +139,12 @@ func main() {
 		Type: "sqlite",
 		Uri:  ca.SqliteFile,
 	}, ca.CleanDB) // assigns the global variable db
-	defer CloseDB() // Defer Closing the database
+	defer CloseDB()
 	// --- Finish connect to DB ---
 
 	// TODO: read benchmarks from db, if no forced reread or db clean
 	log.Debugf("Begin collecting benchmarks of %s", cfg.Name)
-	benchmarks, err := CollectBenchmarks(cfg.Name, cfg.Path, cfg.BasePackage, cfg.Tags)
+	benchmarks, err := CollectBenchmarks(cfg.Name, cfg.Path, cfg.BasePackage, cfg.Tags, ca.BenchRegex)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -146,9 +152,8 @@ func main() {
 	log.Debugf("Finished collecting benchmarks of %s", cfg.Name)
 	log.Debugf("Found %d benchmarks: %+v", len(*benchmarks), *benchmarks)
 
-	// Start server endpoints
-
-	// Sending benchmarks
+	/********** Start server endpoints ************/
+	// Sending Benchmarks
 	quitSend := make(chan bool, 1)
 	inSend, err := net.Listen("tcp", ":5002")
 	if err != nil {
@@ -156,7 +161,7 @@ func main() {
 	}
 	go sendBenchmarkHandler(benchmarks, &inSend, quitSend)
 
-	// Sending benchmarks
+	// Recevie Measurements
 	quitRecv := make(chan bool, 1)
 	inRecv, err := net.Listen("tcp", ":5003")
 	if err != nil {
@@ -164,82 +169,85 @@ func main() {
 	}
 	go readMeasurementHandler(&inRecv, quitRecv)
 
-	// GCP STUFF
-	ctx := context.Background()
-	creds := option.WithCredentialsFile(ca.CredentialsFile)
+	// Skip if running locally
+	if !ca.RunLocal {
+		/********** Start Cloud Instances ************/
+		ctx := context.Background()
+		creds := option.WithCredentialsFile(ca.CredentialsFile)
 
-	// open gcp clients
-	gclientStorage, err := storage.NewClient(ctx, creds)
-	if err != nil {
-		log.Fatalln(err)
+		// open gcp clients
+		gclientStorage, err := storage.NewClient(ctx, creds)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		defer gclientStorage.Close()
+		gclientCompute, err := compute.NewInstancesRESTClient(ctx, creds)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		defer gclientCompute.Close()
+
+		// start setup
+		currSetup.Mu.Lock()
+		currSetup.Bed = cfg.Bed
+		currSetup.Iterations = cfg.It
+		currSetup.Sr = cfg.Sr
+		currSetup.Ir = cfg.Ir
+		currSetup.Mu.Unlock()
+		currIrPos.Mu.Lock()
+		currIrPos.IrPos = 0
+		currIrPos.Mu.Unlock()
+
+		// RUN EXPERIMENT
+		currSetup.Mu.Lock()
+		script := generateStartupScript(
+			cfg.ProjUri,
+			cfg.Tags,
+			cfg.BasePackage,
+			currSetup.Bed,
+			currSetup.Iterations,
+			currSetup.Sr,
+			ca.Ip,
+			ca.BenchmarkListPort,
+			ca.MeasurementReportPort,
+			cfg.GCPProject,
+			cfg.GCPBucket,
+			cfg.GenPprof,
+			cfg.Envs,
+			cfg.Commands,
+		)
+		instances := currSetup.Ir
+
+		log.Debugf("Experiment Start\nSetup: BED = %d, It = %d, SR = %d, IR = %d", currSetup.Bed, currSetup.Iterations, currSetup.Sr, currSetup.Ir)
+		currSetup.Mu.Unlock()
+		/*fT, _ := os.Create("tmp")
+		fT.Write(script)
+		fT.Chmod(0777)
+		fT.Close()*/
+		currIrPos.Mu.Lock()
+		currIrPos.IrPos = 0
+		currIrPos.Mu.Unlock()
+
+		// upload startup script to bucket
+		fileKey := ca.InstanceName + "/startup.sh"
+		common.UploadBytes(script, fileKey, cfg.GCPProject, cfg.GCPBucket, gclientStorage, ctx)
+
+		listOfInstances := make([]string, 3)
+
+		for j := 0; j < instances; j++ {
+			name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
+			common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.Region, cfg.Zone, cfg.GCPBucket, cfg.GCPImage, cfg.GcpDiskSize, gclientCompute, ctx)
+			listOfInstances = append(listOfInstances, name)
+			wgIrResults.Add(1)
+		}
+		log.Debugln(listOfInstances)
 	}
-	defer gclientStorage.Close()
-	gclientCompute, err := compute.NewInstancesRESTClient(ctx, creds)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer gclientCompute.Close()
-
-	// start setup
-	currSetup.Mu.Lock()
-	currSetup.Bed = cfg.Bed
-	currSetup.Iterations = cfg.It
-	currSetup.Sr = cfg.Sr
-	currSetup.Ir = cfg.Ir
-	currSetup.Mu.Unlock()
-	currIrPos.Mu.Lock()
-	currIrPos.IrPos = 0
-	currIrPos.Mu.Unlock()
-
-	// RUN EXPERIMENT
-	currSetup.Mu.Lock()
-	script := generateStartupScript(
-		cfg.ProjUri,
-		cfg.Tags,
-		cfg.BasePackage,
-		currSetup.Bed,
-		currSetup.Iterations,
-		currSetup.Sr,
-		ca.Ip,
-		ca.BenchmarkListPort,
-		ca.MeasurementReportPort,
-		cfg.GCPProject,
-		cfg.GCPBucket,
-		cfg.GenPprof,
-		cfg.Envs,
-		cfg.Commands,
-	)
-	instances := currSetup.Ir
-
-	log.Debugf("Experiment Start\nSetup: BED = %d, It = %d, SR = %d, IR = %d", currSetup.Bed, currSetup.Iterations, currSetup.Sr, currSetup.Ir)
-	currSetup.Mu.Unlock()
-	/*fT, _ := os.Create("tmp")
-	fT.Write(script)
-	fT.Chmod(0777)
-	fT.Close()*/
-	currIrPos.Mu.Lock()
-	currIrPos.IrPos = 0
-	currIrPos.Mu.Unlock()
-
-	// upload startup script to bucket
-	fileKey := ca.InstanceName + "/startup.sh"
-	common.UploadBytes(script, fileKey, cfg.GCPProject, cfg.GCPBucket, gclientStorage, ctx)
-
-	listOfInstances := make([]string, 3)
-
-	for j := 0; j < instances; j++ {
-		name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
-		common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.Region, cfg.Zone, cfg.GCPBucket, cfg.GCPImage, cfg.GcpDiskSize, gclientCompute, ctx)
-		listOfInstances = append(listOfInstances, name)
-		wgIrResults.Add(1)
-	}
-	log.Debugln(listOfInstances)
 
 	// wait for results
 	wgIrResults.Wait()
 
 	// shutdown instances
-	common.ShutdownAllInstances(&listOfInstances, cfg.GCPProject, cfg.Zone, gclientCompute, ctx)
+	// common.ShutdownAllInstances(&listOfInstances, cfg.GCPProject, cfg.Zone, gclientCompute, ctx)
 
 	// END EXPERIMENT
 

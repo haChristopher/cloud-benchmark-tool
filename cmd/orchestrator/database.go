@@ -69,7 +69,7 @@ func CloseDB() {
 }
 
 // CollectBenchmarks runs all benchmarks of the given project, and gathers their names
-func CollectBenchmarks(projName string, projPath string, basePackage string, tags []string) (*[]common.Benchmark, error) {
+func CollectBenchmarks(projName string, projPath string, basePackage string, tags []string, benchRegex string) (*[]common.Benchmark, error) {
 
 	// register project in DB
 	insertProject(projName, basePackage)
@@ -86,7 +86,7 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 	// This works for topl level benchmarks but not for subbenchmarks
 	// cmd := exec.Command("go", "test", "./...", "-list", "^Benchmark.*", "-run", "^$", "-cpu", "1")
 
-	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1ns", "-bench", ".", "./...", "-run", "^$", "-cpu", "1")
+	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1ns", "-bench", benchRegex, "./...", "-run", "^$", "-cpu", "1")
 	cmd.Dir = projPath
 
 	out, err := cmd.CombinedOutput()

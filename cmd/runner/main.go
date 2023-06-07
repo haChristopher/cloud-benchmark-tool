@@ -78,6 +78,7 @@ func main() {
 	// Create log file
 	f, err := os.OpenFile("./log.txt", os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
+		log.Println(err)
 		panic(1)
 	}
 

@@ -73,3 +73,15 @@ Setting environment variables for project setup and benchmark execution
 ```
 envs=["GO111MODULE=on"]
 ```
+
+# Running Locally
+
+Orchestrator:
+```
+./build/orchestrator -local --configFile config-roaring.toml
+```
+
+Runner only:
+```
+CGO_ENABLED=0 go build -o cmd/orchestrator/build/ -v cloud-benchmark-tool/cmd/runner
+```
