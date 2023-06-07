@@ -78,10 +78,12 @@ envs=["GO111MODULE=on"]
 
 Orchestrator:
 ```
-./build/orchestrator -local --configFile config-roaring.toml
+./build/orchestrator -local --configFile config-roaring-local.toml --clean-db
 ```
 
 Runner only:
 ```
-CGO_ENABLED=0 go build -o cmd/orchestrator/build/ -v cloud-benchmark-tool/cmd/runner
+CGO_ENABLED=0 go build -o build/runner -v cloud-benchmark-tool/cmd/runner
+
+./build/runner -project-name roaring -path="/Users/christopher/Uni/MasterThesis/repositories/roaring/" -logfile=false
 ```

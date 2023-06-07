@@ -38,6 +38,7 @@ type (
 		GenPprof              bool
 		Envs                  string
 		Commands              string
+		logfile               bool
 	}
 )
 
@@ -50,8 +51,8 @@ func parseArgs() (ca cmdArgs) {
 	flag.IntVar(&(ca.Sr), "sr", 1, "Number of suite runs for the whole benchmark suite.")
 
 	flag.StringVar(&(ca.OrchestratorIp), "orchestrator-ip", "127.0.0.1", "IP address of the orchestrator program to report results to.")
-	flag.StringVar(&(ca.BenchmarkListPort), "benchmark-list-port", "5000", "Port, under which the orchestrator reports the list of benchmarks.")
-	flag.StringVar(&(ca.MeasurementReportPort), "measurement-report-port", "5001", "Port, under which the orchestrator receives the benchmarking measurements.")
+	flag.StringVar(&(ca.BenchmarkListPort), "benchmark-list-port", "5002", "Port, under which the orchestrator reports the list of benchmarks.")
+	flag.StringVar(&(ca.MeasurementReportPort), "measurement-report-port", "5003", "Port, under which the orchestrator receives the benchmarking measurements.")
 
 	flag.StringVar(&(ca.ProjectName), "project-name", "default", "Project of bucket to upload experiment pprof files to.")
 	flag.StringVar(&(ca.BucketName), "bucket-name", "default", "Bucket to upload experiment pprof files to.")
@@ -59,6 +60,8 @@ func parseArgs() (ca cmdArgs) {
 	flag.BoolVar(&(ca.GenPprof), "generate-pprof", false, "Wether to generate pprof files or not.")
 	flag.StringVar(&(ca.Envs), "envs", "", "List of environment variables to set.")
 	flag.StringVar(&(ca.Commands), "commands", "", "List commands to execute before the benchmark in the project dir.")
+
+	flag.BoolVar(&(ca.logfile), "logfile", true, "Wether to log to file.")
 
 	flag.Parse()
 
@@ -76,16 +79,9 @@ func main() {
 	// parse cmd arguments
 	ca := parseArgs()
 
-	// Create log file
-	f, err := os.OpenFile("./log.txt", os.O_WRONLY|os.O_CREATE, 0755)
-	if err != nil {
-		log.Println(err)
-		panic(1)
-	}
-
 	if ca.GenPprof {
 		// Create folders for cpu and mem pprof files
-		err = os.MkdirAll("cpu", os.ModePerm)
+		err := os.MkdirAll("cpu", os.ModePerm)
 		if err != nil {
 			log.Println(err)
 		}
@@ -96,8 +92,22 @@ func main() {
 		}
 	}
 
+	// Create log file
+	var f *os.File
+
 	// Initiate logging
-	log.SetOutput(f)
+	if ca.logfile {
+		// Create log file
+		f, err := os.OpenFile("./runner-log.txt", os.O_WRONLY|os.O_CREATE, 0755)
+		if err != nil {
+			log.Println(err)
+			panic(1)
+		}
+		log.SetOutput(f)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+
 	log.SetLevel(log.DebugLevel)
 
 	// Receive benchmarks from orchestrator
@@ -119,6 +129,9 @@ func main() {
 	log.Debug("Commands to run: ", ca.Commands)
 	commands := strings.Split(ca.Commands, ",")
 	common.RunCommands(commands, ca.Path)
+
+	// Track totaltime for running the benchmarks
+	start := time.Now()
 
 	// Run benchmarks
 	for i := 1; i <= ca.Sr; i++ {
@@ -143,7 +156,7 @@ func main() {
 					_, gitCheckoutErr := gitCheckout.CombinedOutput()
 
 					if gitCheckoutErr != nil {
-						log.Debug(err)
+						log.Debug(gitCheckoutErr)
 					}
 				}
 
@@ -157,7 +170,9 @@ func main() {
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)
 	}
 
-	// If generate pprof is set, upload pprof files to bucket
+	elapsed := time.Since(start)
+	log.Printf("Running all benchmarks took: %s", elapsed)
+
 	if ca.GenPprof {
 		log.Debug("Uploading pprof files to bucket")
 		uploadFilesToBucket("cpu/", ca.ProjectName, ca.BucketName)
@@ -167,14 +182,16 @@ func main() {
 	sendMeasurements(benchmarks, ca.OrchestratorIp, ca.MeasurementReportPort)
 	log.Debug("Finished sending measurements")
 
-	// Sync and close logfile before uploading to bucket
-	log.Debug("Closing log file and uploading log file to bucket")
-	log.SetOutput(os.Stdout)
-	fileCloseErr := f.Close()
-	if fileCloseErr != nil {
-		log.Debug(err)
+	// Close logfile before uploading to bucket
+	if ca.logfile {
+		log.Debug("Closing log file and uploading log file to bucket")
+		log.SetOutput(os.Stdout)
+		fileCloseErr := f.Close()
+		if fileCloseErr != nil {
+			log.Debug(fileCloseErr)
+		}
+		uploadFilesToBucket(f.Name(), ca.ProjectName, ca.BucketName)
 	}
-	uploadFilesToBucket("./log.txt", ca.ProjectName, ca.BucketName)
 }
 
 func shuffle(slice []string) []string {

@@ -241,6 +241,9 @@ func main() {
 			wgIrResults.Add(1)
 		}
 		log.Debugln(listOfInstances)
+	} else {
+		// Wait for local results
+		wgIrResults.Add(1)
 	}
 
 	// wait for results
