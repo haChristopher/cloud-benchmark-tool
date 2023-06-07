@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -96,7 +97,6 @@ func main() {
 	}
 
 	// Initiate logging
-	//log.SetOutput(os.Stdout)
 	log.SetOutput(f)
 	log.SetLevel(log.DebugLevel)
 
@@ -135,13 +135,16 @@ func main() {
 				// execute current benchmark
 				log.Debugf("Executing %s with iteration %d of %d on tag: %s", (*benchmarks)[curr].Name, itCounts[curr], ca.Iterations, tag)
 
-				// checkout tag
-				gitCheckout := exec.Command("git", "checkout", tag)
-				gitCheckout.Dir = (*benchmarks)[curr].ProjectPath
-				_, gitCheckoutErr := gitCheckout.CombinedOutput()
+				// First take is already initital checked out
+				if len(tags) > 1 {
+					log.Debug("Checking out tag: ", tag)
+					gitCheckout := exec.Command("git", "checkout", "tags/"+tag)
+					gitCheckout.Dir = (*benchmarks)[curr].ProjectPath
+					_, gitCheckoutErr := gitCheckout.CombinedOutput()
 
-				if gitCheckoutErr != nil {
-					log.Debug(err)
+					if gitCheckoutErr != nil {
+						log.Debug(err)
+					}
 				}
 
 				// Run benchmark
@@ -154,14 +157,24 @@ func main() {
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)
 	}
 
-	// Upload pprof files to bucket
-	log.Debug("Uploading pprof files to bucket")
-	uploadPprofFilesToBucket("cpu/", ca.ProjectName, ca.BucketName)
+	// If generate pprof is set, upload pprof files to bucket
+	if ca.GenPprof {
+		log.Debug("Uploading pprof files to bucket")
+		uploadFilesToBucket("cpu/", ca.ProjectName, ca.BucketName)
+	}
 
-	// Send benchmarks with measurement results back
 	log.Debug("Sending measurements to orchestrator")
 	sendMeasurements(benchmarks, ca.OrchestratorIp, ca.MeasurementReportPort)
 	log.Debug("Finished sending measurements")
+
+	// Sync and close logfile before uploading to bucket
+	log.Debug("Closing log file and uploading log file to bucket")
+	log.SetOutput(os.Stdout)
+	fileCloseErr := f.Close()
+	if fileCloseErr != nil {
+		log.Debug(err)
+	}
+	uploadFilesToBucket("./log.txt", ca.ProjectName, ca.BucketName)
 }
 
 func shuffle(slice []string) []string {
@@ -209,8 +222,21 @@ func sendMeasurements(benchmarks *[]common.Benchmark, ip string, port string) {
 	conn.Close()
 }
 
-func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName string) {
-	items, _ := ioutil.ReadDir(path)
+// Uploads a single file or path to a google cloud bucket
+func uploadFilesToBucket(path string, gcpProjectName string, gcpBucketName string) {
+	var items []fs.FileInfo
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		log.Warnf("Could not get stat for path: %s", path)
+		return
+	}
+
+	// check if path is a directory or single file
+	if fileInfo.IsDir() {
+		items, _ = ioutil.ReadDir(path)
+	} else {
+		items = append(items, fileInfo)
+	}
 
 	// check if there is an item
 	if len(items) == 0 {
@@ -241,8 +267,7 @@ func uploadPprofFilesToBucket(path string, gcpProjectName string, gcpBucketName 
 			continue
 		}
 
-		// use current date in key name
-		key := "exp4" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp4measure" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }

@@ -246,7 +246,8 @@ func main() {
 	// wait for results
 	wgIrResults.Wait()
 
-	// shutdown instances
+	// Wait 10 seconds for logfiles to be uploaded to bucket then shutdown instances
+	// time.Sleep(10 * time.Second)
 	// common.ShutdownAllInstances(&listOfInstances, cfg.GCPProject, cfg.Zone, gclientCompute, ctx)
 
 	// END EXPERIMENT
