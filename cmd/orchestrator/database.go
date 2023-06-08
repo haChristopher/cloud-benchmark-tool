@@ -347,7 +347,9 @@ func RecordMeasurement(bench *common.Benchmark, bedSetup int, itSetup int, srSet
 }
 
 func CloseMeasurementQueue() {
-	close(msrmntQueue)
+	if msrmntQueue != nil {
+		close(msrmntQueue)
+	}
 }
 
 func dbQueueConsumer(wg *sync.WaitGroup) {

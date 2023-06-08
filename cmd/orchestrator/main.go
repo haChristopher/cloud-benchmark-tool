@@ -284,7 +284,6 @@ func main() {
 	wg.Wait()
 	close(quitSend)
 	close(quitRecv)
-	//close(c)
 	log.Debugln("Finished experiment")
 }
 
