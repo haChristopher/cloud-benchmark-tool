@@ -23,6 +23,7 @@ envs=[]
 gcpProject = "master-thesis-benchmark"
 gcpBucket = "master-thesis-test-bucket"
 gcpDiskSize = 20
+gcpMachineType = "n1-highmem-2"
 
 # This tool needs a custom linux image with access to the Go compiler suite and git
 gcpImage = "debian-git-gvm-influxdb"

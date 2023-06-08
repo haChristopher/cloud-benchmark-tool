@@ -50,7 +50,7 @@ sudo journalctl -u google-startup-scripts.service -f
 
 Run Startup script:
 ```
-    sudo google_metadata_script_runner startup
+sudo google_metadata_script_runner startup
 ```
 
 # Image Creation
@@ -76,13 +76,15 @@ envs=["GO111MODULE=on"]
 
 # Running Locally
 
-Orchestrator:
-```
-./build/orchestrator -local --configFile config-roaring-local.toml --clean-db
+Orchestrator (Build and Run):
+```bash
+make all
+
+./build/orchestrator -local --configFile config-roaring-local.toml --clean-db -bench ^BenchmarkChecksum$
 ```
 
-Runner only:
-```
+Runner (Build and Run):
+```bash
 CGO_ENABLED=0 go build -o build/runner -v cloud-benchmark-tool/cmd/runner
 
 ./build/runner -project-name roaring -path="/Users/christopher/Uni/MasterThesis/repositories/roaring/" -logfile=false

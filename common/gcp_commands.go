@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/storage"
@@ -32,9 +33,31 @@ func UploadBytes(toUpload []byte, fileKey string, gcpProjectName string, gcpBuck
 	log.Debugln("Finished uploading data to bucket")
 }
 
-func CreateInstance(name string, orchestratorName string, gcpProjectName string, gcpRegion string, gcpZone string, gcpBucketName string, gcpImageName string, gcpInstanceDiskSize int, gclient *compute.InstancesClient, ctx context.Context) {
-	log.Debugln("Creating instance " + name)
-	instance := GenerateNewInstance(name, orchestratorName, gcpProjectName, gcpRegion, gcpZone, gcpBucketName, gcpImageName, gcpInstanceDiskSize)
+func CreateInstance(
+	name string,
+	orchestratorName string,
+	gcpProjectName string,
+	gcpRegion string,
+	gcpZone string,
+	gcpBucketName string,
+	gcpImageName string,
+	gcpInstanceDiskSize int,
+	gcpMachineType string,
+	gclient *compute.InstancesClient,
+	ctx context.Context,
+) {
+	log.Debug(fmt.Sprintf("Creating instance %s with MachineType %s and Image %s", name, gcpMachineType, gcpImageName))
+	instance := GenerateNewInstance(
+		name,
+		orchestratorName,
+		gcpProjectName,
+		gcpRegion,
+		gcpZone,
+		gcpBucketName,
+		gcpImageName,
+		gcpInstanceDiskSize,
+		gcpMachineType,
+	)
 
 	req := computepb.InsertInstanceRequest{
 		InstanceResource: instance,

@@ -24,24 +24,25 @@ import (
 
 type (
 	configFile struct {
-		Name        string
-		Path        string
-		ProjUri     string
-		Tags        []string
-		Commands    []string
-		Envs        []string
-		Zone        string
-		Region      string
-		BasePackage string
-		GCPProject  string
-		GCPBucket   string
-		GCPImage    string
-		GcpDiskSize int
-		GenPprof    bool
-		Bed         int
-		It          int
-		Sr          int
-		Ir          int
+		Name           string
+		Path           string
+		ProjUri        string
+		Tags           []string
+		Commands       []string
+		Envs           []string
+		Zone           string
+		Region         string
+		BasePackage    string
+		GCPProject     string
+		GCPBucket      string
+		GCPImage       string
+		GcpDiskSize    int
+		GcpMachineType string
+		GenPprof       bool
+		Bed            int
+		It             int
+		Sr             int
+		Ir             int
 	}
 
 	cmdArgs struct {
@@ -236,7 +237,18 @@ func main() {
 
 		for j := 0; j < instances; j++ {
 			name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
-			common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.Region, cfg.Zone, cfg.GCPBucket, cfg.GCPImage, cfg.GcpDiskSize, gclientCompute, ctx)
+			common.CreateInstance(name,
+				ca.InstanceName,
+				cfg.GCPProject,
+				cfg.Region,
+				cfg.Zone,
+				cfg.GCPBucket,
+				cfg.GCPImage,
+				cfg.GcpDiskSize,
+				cfg.GcpMachineType,
+				gclientCompute,
+				ctx,
+			)
 			listOfInstances = append(listOfInstances, name)
 			wgIrResults.Add(1)
 		}
@@ -295,7 +307,7 @@ Loop:
 	for {
 		select {
 		case <-quit:
-			break Loop // Break out of loop
+			break Loop
 		default:
 			conn, err := (*in).Accept()
 			if err != nil {
@@ -308,8 +320,6 @@ Loop:
 }
 
 func readMeasurements(conn net.Conn) {
-	defer wgIrResults.Done() // TODO: unsafe, can be tampered with, maybe not important?
-
 	benchmarks := make([]common.Benchmark, 0, 10)
 
 	dec := gob.NewDecoder(conn)
@@ -323,6 +333,12 @@ func readMeasurements(conn net.Conn) {
 			} else {
 				log.Fatalln(err)
 			}
+		}
+
+		if b.Name == "alldone" {
+			log.Debugln("Received all done")
+			wgIrResults.Done()
+			break
 		}
 
 		benchmarks = append(benchmarks, b)
@@ -344,7 +360,7 @@ func readMeasurements(conn net.Conn) {
 	for i := 0; i < len(benchmarks); i++ {
 		RecordMeasurement(&benchmarks[i], bedSetup, itSetup, srSetup, irSetup, irPos, &wg)
 	}
-	log.Debugln("Finished adding measurements into queue ")
+	log.Debugln("Finished adding measurements into queue")
 }
 
 func readMeasurementHandler(in *net.Listener, quit <-chan bool) {
@@ -352,7 +368,7 @@ Loop:
 	for {
 		select {
 		case <-quit:
-			break Loop // Break out of loop
+			break Loop
 		default:
 			conn, err := (*in).Accept()
 			if err != nil {

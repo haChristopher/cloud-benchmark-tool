@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -50,7 +51,7 @@ func MaskNameRegexp(name string) string {
 	}
 	nameRegexp = nameRegexp + "^" + nameSplit[len(nameSplit)-1] + "$" // last iteration without '/'
 
-	log.Debug("Converted name: %s, to regexp: %s", name, nameRegexp)
+	log.Debug(fmt.Sprintf("Converted name: %s, to regexp: %s", name, nameRegexp))
 	return nameRegexp
 }
 

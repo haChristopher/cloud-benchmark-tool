@@ -334,6 +334,7 @@ func RecordMeasurement(bench *common.Benchmark, bedSetup int, itSetup int, srSet
 		go dbQueueConsumer(wg)
 	}
 	queueMu.Unlock()
+
 	currMsrmnt := queueElem{
 		benchmark: bench,
 		bedSetup:  bedSetup,

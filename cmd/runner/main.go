@@ -72,12 +72,17 @@ func parseArgs() (ca cmdArgs) {
 	return
 }
 
+const MEASUREMENT_BATCH_SIZE = 20
+
 func main() {
 	// Seed rand with current time (running with no seed gives deterministic results)
 	rand.Seed(time.Now().UnixNano())
 
-	// parse cmd arguments
+	// Parse cmd arguments
 	ca := parseArgs()
+
+	// Track number of already processed benchmark executions
+	var numExecutions int = 0
 
 	if ca.GenPprof {
 		// Create folders for cpu and mem pprof files
@@ -165,6 +170,14 @@ func main() {
 				if err != nil {
 					log.Debug(err)
 				}
+				numExecutions++
+			}
+
+			if numExecutions > MEASUREMENT_BATCH_SIZE {
+				log.Debug("Sending measurements to orchestrator and clearing measurements: ", numExecutions)
+				sendMeasurements(benchmarks, ca.OrchestratorIp, ca.MeasurementReportPort)
+				clearBenchmarkMeasurements(benchmarks)
+				numExecutions = 0
 			}
 		}
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)
@@ -178,8 +191,10 @@ func main() {
 		uploadFilesToBucket("cpu/", ca.ProjectName, ca.BucketName)
 	}
 
-	log.Debug("Sending measurements to orchestrator")
+	log.Debug("Sending measurements to orchestrator and clearing measurements")
 	sendMeasurements(benchmarks, ca.OrchestratorIp, ca.MeasurementReportPort)
+	log.Debug("Sending done signal to orchestrator")
+	sendDoneSignal(ca.OrchestratorIp, ca.MeasurementReportPort)
 	log.Debug("Finished sending measurements")
 
 	// Close logfile before uploading to bucket
@@ -192,6 +207,7 @@ func main() {
 		}
 		uploadFilesToBucket(f.Name(), ca.ProjectName, ca.BucketName)
 	}
+
 }
 
 func shuffle(slice []string) []string {
@@ -234,9 +250,28 @@ func sendMeasurements(benchmarks *[]common.Benchmark, ip string, port string) {
 	encoder := gob.NewEncoder(conn)
 	N := len(*benchmarks)
 	for i := 0; i < N; i++ {
-		encoder.Encode((*benchmarks)[i])
+		if len((*benchmarks)[i].Measurement) != 0 {
+			encoder.Encode((*benchmarks)[i])
+		}
 	}
 	conn.Close()
+}
+
+func sendDoneSignal(ip string, port string) {
+	conn, err := net.Dial("tcp", ip+":"+port)
+	if err != nil {
+		log.Fatal(err)
+	}
+	encoder := gob.NewEncoder(conn)
+	encoder.Encode(common.Benchmark{Name: "alldone"})
+	conn.Close()
+}
+
+func clearBenchmarkMeasurements(benchmarks *[]common.Benchmark) {
+	N := len(*benchmarks)
+	for i := 0; i < N; i++ {
+		(*benchmarks)[i].Measurement = make([]common.Measurement, 0)
+	}
 }
 
 // Uploads a single file or path to a google cloud bucket
