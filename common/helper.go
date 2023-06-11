@@ -1,6 +1,13 @@
 package common
 
-import "math/rand"
+import (
+	"math/rand"
+	"os"
+	"os/exec"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
+)
 
 // FisherYatesShuffle shuffles an int array in-place to a random permutation
 // cf
@@ -29,4 +36,34 @@ func CreateExtendedPerm(n int, i int) *[]int {
 	}
 	FisherYatesShuffle(&list)
 	return &list
+}
+
+func SetEnvironmentVariables(envSlice []string) {
+	log.Debugf("Setting environment variables %v", envSlice)
+	for _, env := range envSlice {
+		envSplit := strings.SplitN(env, "=", 2)
+		if len(envSplit) != 2 {
+			continue
+		}
+
+		err := os.Setenv(envSplit[0], envSplit[1])
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+	log.Debugf("Setting environment variables was succesful")
+}
+
+func RunCommands(commands []string, dir string) {
+	log.Debugf("Running provided commands %v", commands)
+	for _, command := range commands {
+		log.Debugf("Running command: %s", command)
+		cmd := exec.Command("sh", "-c", command)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Errorln(string(out))
+			log.Fatalln(err)
+		}
+	}
 }

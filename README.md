@@ -18,7 +18,6 @@ Absolute Minimalkonfiguration:
 finde config mit ir 1, verifiziere mit ir 2 und 3
 
 
-
 # Setup
 
 Create google cloud Project
@@ -51,7 +50,7 @@ sudo journalctl -u google-startup-scripts.service -f
 
 Run Startup script:
 ```
-    sudo google_metadata_script_runner startup
+sudo google_metadata_script_runner startup
 ```
 
 # Image Creation
@@ -61,3 +60,32 @@ sudo apt install graphviz gv
 ```
 
 go test -benchtime 1s -bench ^BenchmarkCreateBuildInfo$ ./expfmt -memprofile BenchmarkCreateBuildInfo.out -cpuprofile BenchmarkCreateBuildInfo.out
+
+
+# Configuration
+
+Changing go version, if gvm is installed on the image, you can use the commands config variable
+```
+commands=["gvm install go1.18", "gvm use go1.18 --default"]
+```
+
+Setting environment variables for project setup and benchmark execution
+```
+envs=["GO111MODULE=on"]
+```
+
+# Running Locally
+
+Orchestrator (Build and Run):
+```bash
+make all
+
+./build/orchestrator -local --configFile config-roaring-local.toml --clean-db -bench ^BenchmarkChecksum$
+```
+
+Runner (Build and Run):
+```bash
+CGO_ENABLED=0 go build -o build/runner -v cloud-benchmark-tool/cmd/runner
+
+./build/runner -project-name roaring -path="/Users/christopher/Uni/MasterThesis/repositories/roaring/" -logfile=false
+```

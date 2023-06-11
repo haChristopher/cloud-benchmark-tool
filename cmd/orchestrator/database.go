@@ -3,15 +3,16 @@ package main
 import (
 	"cloud-benchmark-tool/common"
 	"database/sql"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	benchparser "golang.org/x/tools/benchmark/parse"
-	_ "modernc.org/sqlite"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	benchparser "golang.org/x/tools/benchmark/parse"
+	_ "modernc.org/sqlite"
 )
 
 type (
@@ -27,6 +28,7 @@ type (
 		srSetup   int
 		irSetup   int
 		irPos     int
+		tag       string
 	}
 )
 
@@ -67,13 +69,26 @@ func CloseDB() {
 }
 
 // CollectBenchmarks runs all benchmarks of the given project, and gathers their names
-func CollectBenchmarks(projName string, projPath string, basePackage string) (*[]common.Benchmark, error) {
+func CollectBenchmarks(projName string, projPath string, basePackage string, tags []string, benchRegex string) (*[]common.Benchmark, error) {
+
 	// register project in DB
 	insertProject(projName, basePackage)
 
-	// run all benchmarks and get output
-	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1x", "-bench", ".", "./...")
+	// checkout tag
+	gitCheckout := exec.Command("git", "checkout", tags[0])
+	gitCheckout.Dir = projPath
+	gitCheckout_err := gitCheckout.Start()
+
+	if gitCheckout_err != nil {
+		return nil, errors.Wrapf(gitCheckout_err, "%#v", gitCheckout.Args)
+	}
+
+	// This works for topl level benchmarks but not for subbenchmarks
+	// cmd := exec.Command("go", "test", "./...", "-list", "^Benchmark.*", "-run", "^$", "-cpu", "1")
+
+	cmd := exec.Command("go", "test", "-timeout", "0", "-benchtime", "1ns", "-bench", benchRegex, "./...", "-run", "^$", "-cpu", "1")
 	cmd.Dir = projPath
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if exiterr, ok := err.(*exec.ExitError); ok {
@@ -92,9 +107,15 @@ func CollectBenchmarks(projName string, projPath string, basePackage string) (*[
 	// default package
 	pkg := "./"
 
+	// Regex for extracting benchmark configuration
+	// regex_config, _ := regexp.Compile(`/?-?\d{1-2}((-\d{1,2}){1,4})?$`)
+	regex_bench, _ := regexp.Compile(`^Benchmark`)
+
 	// parse output from go test
 	for i := 0; i < len(lines); i++ {
-		isBench, err := regexp.MatchString("^Benchmark", lines[i])
+		isBench := regex_bench.FindStringIndex(lines[i]) != nil
+
+		// isBench, err := regexp.MatchString("^Benchmark", lines[i])
 		if err != nil {
 			return nil, errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
 		}
@@ -107,9 +128,21 @@ func CollectBenchmarks(projName string, projPath string, basePackage string) (*[
 
 			// go test appends -#cpu to every name, and the parser does not remove this suffix
 			// since go test does not consider the suffix part of the name, it has to be removed
-			nameSplit := strings.Split(b.Name, "-")               // split at -
-			nameSuffix := "-" + nameSplit[len(nameSplit)-1]       // get last position (number of cpus used in run)
-			nameTrimmed := strings.TrimSuffix(b.Name, nameSuffix) // remove suffix
+			//configuration := regex_config.FindString(b.Name)
+			//nameTrimmed := strings.TrimSuffix(b.Name, configuration) // remove suffix
+			//configuration = strings.TrimPrefix(configuration, "/")   // remove leading /
+
+			nameTrimmed := b.Name
+			configuration := ""
+
+			err = insertBenchmark(nameTrimmed, pkg, projName, configuration)
+			if err != nil {
+				// Skip benchmark if it already exists
+				if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
+					return nil, errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
+				}
+				continue // go to next iteration
+			}
 
 			benchmarks = append(benchmarks, common.Benchmark{
 				Name:        nameTrimmed,
@@ -118,9 +151,6 @@ func CollectBenchmarks(projName string, projPath string, basePackage string) (*[
 				ProjectPath: projPath,
 				Measurement: []common.Measurement{},
 			})
-
-			// TODO: register benchmark in DB
-			insertBenchmark(nameTrimmed, pkg, projName)
 
 			continue // go to next iteration
 		}
@@ -143,6 +173,7 @@ func CollectBenchmarks(projName string, projPath string, basePackage string) (*[
 			pkg = after
 		} // discard no match
 	}
+
 	return &benchmarks, nil
 }
 
@@ -204,8 +235,9 @@ func initializeDB(cleanDb bool) {
 		"b_name" TEXT NOT NULL,
 		"subpackage" TEXT NOT NULL,
 		"p_name" TEXT NOT NULL,
+		"config" TEXT,
 		FOREIGN KEY(p_name) REFERENCES project(p_name),
-		CONSTRAINT PK_Bench PRIMARY KEY (b_name,subpackage,p_name)
+		CONSTRAINT PK_Bench PRIMARY KEY (b_name, subpackage, p_name)
 	  );`
 
 	log.Debug("Create benchmark table")
@@ -230,6 +262,7 @@ func initializeDB(cleanDb bool) {
 		"sr_pos" INT NOT NULL,
 		"ir_pos" INT NOT NULL,
 		"b_name" TEXT NOT NULL,
+		"tag" TEXT NOT NULL,
 		FOREIGN KEY(b_name) REFERENCES benchmark(b_name)
 	  );`
 
@@ -260,29 +293,35 @@ func insertProject(pName string, basePackage string) {
 	}
 }
 
-func insertBenchmark(bName string, subPackage string, pName string) {
+func insertBenchmark(bName string, subPackage string, pName string, config string) error {
 	log.Debug("Inserting benchmark record ...")
-	insertBenchmarkSQL := `INSERT INTO benchmark(b_name, subpackage, p_name) VALUES (?, ?, ?)`
+	insertBenchmarkSQL := `INSERT INTO benchmark(b_name, subpackage, p_name, config) VALUES (?, ?, ?, ?)`
 	statement, err := db.Prepare(insertBenchmarkSQL) // Prepare statement
 	// This is good to avoid SQL injections
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	_, err = statement.Exec(bName, subPackage, pName)
+
+	// Insert benchmark into DB
+	_, err = statement.Exec(bName, subPackage, pName, config)
 	if err != nil {
-		log.Fatalln(err.Error())
+		// log.Fatalln(err.Error())
+		// return erro could be that the benchmark already exists (different configurations)
+		return err
 	}
+
+	return nil
 }
 
-func insertMeasurement(bName string, n int, nsPerOp float64, bedSetup int, itSetup int, srSetup int, irSetup int, bedPos int, itPos int, srPos int, irPos int) {
+func insertMeasurement(bName string, n int, nsPerOp float64, bedSetup int, itSetup int, srSetup int, irSetup int, bedPos int, itPos int, srPos int, irPos int, tag string) {
 	log.Debug("Inserting measurement record ...")
-	insertMeasurementSQL := `INSERT INTO measurement(n, ns_per_op, bed_setup, it_setup, sr_setup, ir_setup, bed_pos, it_pos, sr_pos, ir_pos, b_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	insertMeasurementSQL := `INSERT INTO measurement(n, ns_per_op, bed_setup, it_setup, sr_setup, ir_setup, bed_pos, it_pos, sr_pos, ir_pos, b_name, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	statement, err := db.Prepare(insertMeasurementSQL) // Prepare statement
 	// This is good to avoid SQL injections
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	_, err = statement.Exec(n, nsPerOp, bedSetup, itSetup, srSetup, irSetup, bedPos, itPos, srPos, irPos, bName)
+	_, err = statement.Exec(n, nsPerOp, bedSetup, itSetup, srSetup, irSetup, bedPos, itPos, srPos, irPos, bName, tag)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -295,6 +334,7 @@ func RecordMeasurement(bench *common.Benchmark, bedSetup int, itSetup int, srSet
 		go dbQueueConsumer(wg)
 	}
 	queueMu.Unlock()
+
 	currMsrmnt := queueElem{
 		benchmark: bench,
 		bedSetup:  bedSetup,
@@ -307,7 +347,9 @@ func RecordMeasurement(bench *common.Benchmark, bedSetup int, itSetup int, srSet
 }
 
 func CloseMeasurementQueue() {
-	close(msrmntQueue)
+	if msrmntQueue != nil {
+		close(msrmntQueue)
+	}
 }
 
 func dbQueueConsumer(wg *sync.WaitGroup) {
@@ -320,7 +362,7 @@ func dbQueueConsumer(wg *sync.WaitGroup) {
 		}
 		for i := 0; i < len(elem.benchmark.Measurement); i++ {
 			currMsrmnt := elem.benchmark.Measurement[i]
-			insertMeasurement(elem.benchmark.Name, currMsrmnt.N, currMsrmnt.NsPerOp, elem.bedSetup, elem.itSetup, elem.srSetup, elem.irSetup, currMsrmnt.BedPos, currMsrmnt.ItPos, currMsrmnt.SrPos, elem.irPos)
+			insertMeasurement(elem.benchmark.Name, currMsrmnt.N, currMsrmnt.NsPerOp, elem.bedSetup, elem.itSetup, elem.srSetup, elem.irSetup, currMsrmnt.BedPos, currMsrmnt.ItPos, currMsrmnt.SrPos, elem.irPos, currMsrmnt.Tag)
 		}
 	}
 }

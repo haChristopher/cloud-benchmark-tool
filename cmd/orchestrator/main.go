@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -24,29 +25,40 @@ import (
 
 type (
 	configFile struct {
-		Name        string
-		Path        string
-		ProjUri     string
-		Tag         string
-		BasePackage string
-		GCPProject  string
-		GCPBucket   string
-		GCPImage    string
-		Bed         int
-		It          int
-		Sr          int
-		Ir          int
+		Name           string
+		Path           string
+		ProjUri        string
+		Tags           []string
+		Commands       []string
+		Envs           []string
+		Zone           string
+		Region         string
+		BasePackage    string
+		GCPProject     string
+		GCPBucket      string
+		GCPImage       string
+		GcpDiskSize    int
+		GcpMachineType string
+		GenPprof       bool
+		Bed            int
+		It             int
+		Sr             int
+		Ir             int
 	}
+
 	cmdArgs struct {
 		CleanDB               bool
+		RunLocal              bool
 		CredentialsFile       string
 		ConfigFile            string
 		SqliteFile            string
+		BenchRegex            string
 		InstanceName          string
 		Ip                    string
 		BenchmarkListPort     string
 		MeasurementReportPort string
 	}
+
 	setup struct {
 		Bed        int
 		Iterations int
@@ -54,6 +66,7 @@ type (
 		Ir         int
 		Mu         sync.Mutex
 	}
+
 	irPosCounter struct {
 		IrPos int
 		Mu    sync.Mutex
@@ -68,10 +81,12 @@ var currIrPos irPosCounter
 func parseArgs() cmdArgs {
 	var ca cmdArgs
 	flag.BoolVar(&(ca.CleanDB), "clean-db", false, "Clean database, i.e., drop all tables related to benchmark data collection.")
+	flag.BoolVar(&(ca.RunLocal), "local", false, "Runs locally without creating instances, connecting to local runners.")
 	flag.StringVar(&(ca.CredentialsFile), "credentials", "creds.json", "Path to the credentials.json for GCP.")
 	flag.StringVar(&(ca.ConfigFile), "configFile", "configFile.toml", "Path to the configFile.toml file.")
 	flag.StringVar(&(ca.SqliteFile), "db", "database.db", "Path to the sqlite3 database file.")
 	flag.StringVar(&(ca.InstanceName), "instance-name", "orchestrator", "GCP instance name of the orchestrator, so that it does not shut itself down.")
+	flag.StringVar(&(ca.BenchRegex), "bench", ".", "Regex to restrict benchmarks to run, default is run all.")
 
 	flag.StringVar(&(ca.Ip), "ip", "127.0.0.1", "IP address of this node.")
 	flag.StringVar(&(ca.BenchmarkListPort), "benchmark-list-port", "5000", "Port, under which the orchestrator reports the list of benchmarks.")
@@ -79,8 +94,7 @@ func parseArgs() cmdArgs {
 
 	flag.Parse()
 
-	// TODO fix multiple slashes in paths
-
+	// [] TODO fix multiple slashes in paths
 	return ca
 }
 
@@ -88,14 +102,17 @@ func main() {
 	// Seed rand with current time (running with no seed gives deterministic results)
 	rand.Seed(time.Now().UnixNano())
 
+	// Create log file
+	f, fileCreationErr := os.OpenFile("./log-orchestrator.txt", os.O_WRONLY|os.O_CREATE, 0755)
+	if fileCreationErr != nil {
+		panic(1)
+	}
+
 	// Initiate logging
-	log.SetOutput(os.Stdout)
+	log.SetOutput(f)
 	log.SetLevel(log.DebugLevel)
 
-	// parse cmd arguments
 	ca := parseArgs()
-
-	log.Debugf("Reading %s", ca.ConfigFile)
 
 	var cfg configFile
 	_, err := toml.DecodeFile(ca.ConfigFile, &cfg)
@@ -108,27 +125,40 @@ func main() {
 	log.Debugf("Finished reading %s", ca.ConfigFile)
 	log.Debugln(cfg)
 
+	// Set envs and run commands
+	common.SetEnvironmentVariables(cfg.Envs)
+	common.RunCommands(cfg.Commands, cfg.Path)
+
 	// TODO: write to and read from DB
 	// --- Connect to DB (sqlite) ---
 	ConnectToDB(DbConfig{
 		Type: "sqlite",
 		Uri:  ca.SqliteFile,
 	}, ca.CleanDB) // assigns the global variable db
-	defer CloseDB() // Defer Closing the database
+	defer CloseDB()
 	// --- Finish connect to DB ---
 
 	// TODO: read benchmarks from db, if no forced reread or db clean
 	log.Debugf("Begin collecting benchmarks of %s", cfg.Name)
-	benchmarks, err := CollectBenchmarks(cfg.Name, cfg.Path, cfg.BasePackage)
+	benchmarks, err := CollectBenchmarks(cfg.Name, cfg.Path, cfg.BasePackage, cfg.Tags, ca.BenchRegex)
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	log.Debugf("Finished collecting benchmarks of %s", cfg.Name)
-	log.Debugf("Found benchmarks: %+v", *benchmarks)
+	log.Debugf("Found %d benchmarks: %+v", len(*benchmarks), *benchmarks)
 
-	// Start server endpoints
+	// Remove non performance benchmarks with Size or Memory in the name
+	for i := 0; i < len(*benchmarks); i++ {
+		if strings.Contains((*benchmarks)[i].Name, "BenchmarkSize") || strings.Contains((*benchmarks)[i].Name, "BenchmarkMemory") {
+			log.Info("Removing benchmark non perf benchmark: ", (*benchmarks)[i].Name)
+			*benchmarks = append((*benchmarks)[:i], (*benchmarks)[i+1:]...)
+			i--
+		}
+	}
 
-	// Sending benchmarks
+	/********** Start server endpoints ************/
+	// Sending Benchmarks
 	quitSend := make(chan bool, 1)
 	inSend, err := net.Listen("tcp", ":5002")
 	if err != nil {
@@ -136,7 +166,7 @@ func main() {
 	}
 	go sendBenchmarkHandler(benchmarks, &inSend, quitSend)
 
-	// Sending benchmarks
+	// Recevie Measurements
 	quitRecv := make(chan bool, 1)
 	inRecv, err := net.Listen("tcp", ":5003")
 	if err != nil {
@@ -144,7 +174,7 @@ func main() {
 	}
 	go readMeasurementHandler(&inRecv, quitRecv)
 
-	// GCP STUFF
+	/********** Start Cloud Instances ************/
 	ctx := context.Background()
 	creds := option.WithCredentialsFile(ca.CredentialsFile)
 
@@ -175,7 +205,7 @@ func main() {
 	currSetup.Mu.Lock()
 	script := generateStartupScript(
 		cfg.ProjUri,
-		cfg.Tag,
+		cfg.Tags,
 		cfg.BasePackage,
 		currSetup.Bed,
 		currSetup.Iterations,
@@ -185,8 +215,12 @@ func main() {
 		ca.MeasurementReportPort,
 		cfg.GCPProject,
 		cfg.GCPBucket,
+		cfg.GenPprof,
+		cfg.Envs,
+		cfg.Commands,
 	)
 	instances := currSetup.Ir
+
 	log.Debugf("Experiment Start\nSetup: BED = %d, It = %d, SR = %d, IR = %d", currSetup.Bed, currSetup.Iterations, currSetup.Sr, currSetup.Ir)
 	currSetup.Mu.Unlock()
 	/*fT, _ := os.Create("tmp")
@@ -203,18 +237,38 @@ func main() {
 
 	listOfInstances := make([]string, 3)
 
-	for j := 0; j < instances; j++ {
-		name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
-		common.CreateInstance(name, ca.InstanceName, cfg.GCPProject, cfg.GCPBucket, cfg.GCPImage, gclientCompute, ctx)
-		listOfInstances = append(listOfInstances, name)
+	// Skip instance creation when running locally
+	if !ca.RunLocal {
+		for j := 0; j < instances; j++ {
+			name := fmt.Sprintf("%s-instance-%d", ca.InstanceName, j)
+			common.CreateInstance(name,
+				ca.InstanceName,
+				cfg.GCPProject,
+				cfg.Region,
+				cfg.Zone,
+				cfg.GCPBucket,
+				cfg.GCPImage,
+				cfg.GcpDiskSize,
+				cfg.GcpMachineType,
+				gclientCompute,
+				ctx,
+			)
+			listOfInstances = append(listOfInstances, name)
+			wgIrResults.Add(1)
+		}
+		log.Debugln(listOfInstances)
+	} else {
+		// Wait for results of 1 local instance
 		wgIrResults.Add(1)
 	}
-	log.Debugln(listOfInstances)
 
 	// wait for results
 	wgIrResults.Wait()
-	// shutdown instances
-	// shutdownAllInstances(&listOfInstances, cfg.GCPProject, gclientCompute, ctx)
+
+	// Wait 10 seconds for logfiles to be uploaded to bucket then shutdown instances
+	time.Sleep(10 * time.Second)
+	common.ShutdownAllInstances(&listOfInstances, cfg.GCPProject, cfg.Zone, gclientCompute, ctx)
+
 	// END EXPERIMENT
 
 	// Only end when Crtl+C is pressed
@@ -234,7 +288,6 @@ func main() {
 	wg.Wait()
 	close(quitSend)
 	close(quitRecv)
-	//close(c)
 	log.Debugln("Finished experiment")
 }
 
@@ -257,7 +310,7 @@ Loop:
 	for {
 		select {
 		case <-quit:
-			break Loop // Break out of loop
+			break Loop
 		default:
 			conn, err := (*in).Accept()
 			if err != nil {
@@ -270,8 +323,6 @@ Loop:
 }
 
 func readMeasurements(conn net.Conn) {
-	defer wgIrResults.Done() // TODO: unsafe, can be tampered with, maybe not important?
-
 	benchmarks := make([]common.Benchmark, 0, 10)
 
 	dec := gob.NewDecoder(conn)
@@ -285,6 +336,12 @@ func readMeasurements(conn net.Conn) {
 			} else {
 				log.Fatalln(err)
 			}
+		}
+
+		if b.Name == "alldone" {
+			log.Debugln("Received all done")
+			wgIrResults.Done()
+			break
 		}
 
 		benchmarks = append(benchmarks, b)
@@ -306,7 +363,7 @@ func readMeasurements(conn net.Conn) {
 	for i := 0; i < len(benchmarks); i++ {
 		RecordMeasurement(&benchmarks[i], bedSetup, itSetup, srSetup, irSetup, irPos, &wg)
 	}
-	log.Debugln("Finished adding measurements into queue ")
+	log.Debugln("Finished adding measurements into queue")
 }
 
 func readMeasurementHandler(in *net.Listener, quit <-chan bool) {
@@ -314,7 +371,7 @@ Loop:
 	for {
 		select {
 		case <-quit:
-			break Loop // Break out of loop
+			break Loop
 		default:
 			conn, err := (*in).Accept()
 			if err != nil {

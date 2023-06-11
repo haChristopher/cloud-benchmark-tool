@@ -1,0 +1,53 @@
+######### Project Configuration #########
+
+name = "influxdb"
+
+# Path to the project to benchmark
+path = "/home/chris77772/influxdb/"
+
+projUri = "https://github.com/influxdata/influxdb.git"
+
+# List of tags to run the benchmark for
+tags = ["v2.7.1"]
+
+basePackage = "github.com/influxdata/influxdb"
+
+# List of commands to run before the benchmark inside the project directory
+# commands=["gvm install go1.18", "gvm use go1.18 --default", "make"]
+commands=["make"]
+
+# Environment variables set for the project
+envs=["GO111MODULE=on"]
+
+
+######### GCP Configuration #########
+
+gcpProject = "master-thesis-benchmark"
+gcpBucket = "master-thesis-test-bucket"
+gcpDiskSize = 20
+gcpMachineType = "n1-highmem-2"
+
+# This tool needs a custom linux image with access to the Go compiler suite and git
+gcpImage = "debian-git-gvm-influxdb"
+
+# Zone and region to start instances in
+zone = "europe-west6-c"
+region = "europe-west6"
+
+
+######### Benchmark Configuration #########
+
+# When true pprof files are generated and saved to disk
+genPprof = true
+
+# Benchmark Execution Duration (baseline: 1s) (remove)
+bed = 10
+
+# Number of executions of single benchmark during a suite run (baseline: 5) (remove)
+it = 1
+
+# Number of suite runs (baseline: 3) (remove)
+sr = 1
+
+# Number of instance runs (baseline: 3)
+ir = 1

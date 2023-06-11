@@ -1,16 +1,18 @@
 package common
 
 import (
-	"log"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	benchparser "golang.org/x/tools/benchmark/parse"
 )
+
+// CONSTANTS
+var REGEX_BENCH = regexp.MustCompile(`^Benchmark`)
 
 type (
 	Measurement struct {
@@ -19,6 +21,7 @@ type (
 		BedPos  int
 		ItPos   int
 		SrPos   int
+		Tag     string
 	}
 
 	Benchmark struct {
@@ -27,6 +30,7 @@ type (
 		Package     string
 		ProjectPath string
 		Measurement []Measurement
+		Failing     bool
 	}
 )
 
@@ -47,55 +51,50 @@ func MaskNameRegexp(name string) string {
 	}
 	nameRegexp = nameRegexp + "^" + nameSplit[len(nameSplit)-1] + "$" // last iteration without '/'
 
+	log.Debugf("Converted name: %s, to regexp: %s", name, nameRegexp)
 	return nameRegexp
 }
 
-func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool) error {
-	cmd := exec.Command("go", "clean", "--cache")
+func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, genPprof bool) error {
 
-	_, err := cmd.CombinedOutput()
-	if err != nil {
-		return errors.Wrapf(err, "%#v: error while running go clean --cache.", cmd.Args)
-	}
-
-	iter := strconv.Itoa(itPos)
-
-	// var pprofCmd [4]string
-	// if pprof {
-	// 	pprofCmd = [4]string{"-memprofile", bench.Name + ".out", "-cpuprofile", bench.Name + ".out"}
+	// Not needed when using count=x
+	// cmd := exec.Command("go", "clean", "-testcache")
+	// _, err := cmd.CombinedOutput()
+	// if err != nil {
+	// 	return errors.Wrapf(err, "%#v: error while running go clean --cache.", cmd.Args)
 	// }
 
-	// Create directories for pprof output
-	err = os.MkdirAll("proj/cpu", os.ModePerm)
-	if err != nil {
-		log.Println(err)
-	}
+	sRun := strconv.Itoa(srPos)
+	iter := strconv.Itoa(itPos)
 
-	err = os.MkdirAll("proj/mem", os.ModePerm)
-	if err != nil {
-		log.Println(err)
+	// Setting cpu to 1 to make parsing of benchmark names easier
+	var testArgs = []string{"test", "-benchtime", "1s", "-count", "5", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
+
+	if genPprof {
+		var cleanName = strings.Replace(bench.Name, "/", "-", -1)
+		var cleanTag = strings.Replace(tag, ".", "-", -1)
+		var pprofCpuArgs = []string{"-cpuprofile", "../cpu/" + cleanName + "_" + iter + "_" + sRun + "_" + cleanTag + ".out"}
+		//var pprofMemArgs = []string{"-memprofile", "../mem/" + cleanName + "_" + iter + "_" + sRun + "_" + cleanTag + ".out"}
+		testArgs = append(testArgs, pprofCpuArgs...)
 	}
 
 	for i := 0; i < bed; i++ {
 		// each iteration on this level is 1s of benchtime, repeat until bed is reached
-		// go tool pprof -nodecount=3000 --nodefraction=0.0 --edgefraction=0.0 -dot cpu.pprof > pprof.dot
-		cmd := exec.Command("go", "test", "-benchtime", "1s", "-bench", bench.NameRegexp, bench.Package, "-memprofile", "mem/"+bench.Name+"_"+iter+".out", "-cpuprofile", "cpu/"+bench.Name+"_"+iter+".out")
+		cmd := exec.Command("go", testArgs...)
 		cmd.Dir = bench.ProjectPath
 		out, err := cmd.CombinedOutput()
+
 		if err != nil {
+			log.Info("Marking benchmark as failing: ", bench.Name)
+			bench.Failing = true
 			return errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
 		}
 
-		// split output into lines
 		lines := strings.Split(string(out), "\n")
 
-		// parse output
+		// parse output (this will detect multiple measurements -count > 1)
 		for j := 0; j < len(lines); j++ {
-			isBench, err := regexp.MatchString("^Benchmark", lines[j])
-			if err != nil {
-				return errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
-			}
-
+			isBench := REGEX_BENCH.FindStringIndex(lines[j]) != nil
 			if isBench {
 				b, err := benchparser.ParseLine(lines[j])
 				if err != nil {
@@ -109,6 +108,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, pprof bool) 
 					BedPos:  i + 1,
 					ItPos:   itPos,
 					SrPos:   srPos,
+					Tag:     tag,
 				}
 
 				bench.Measurement = append(bench.Measurement, newMsrmnt)
