@@ -5,10 +5,8 @@ import (
 	"context"
 	"encoding/gob"
 	"flag"
-	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"os/exec"
@@ -74,15 +72,22 @@ func parseArgs() (ca cmdArgs) {
 
 const MEASUREMENT_BATCH_SIZE = 20
 
+var hostname string = "runner"
+var numExecutions int = 0
+
 func main() {
 	// Seed rand with current time (running with no seed gives deterministic results)
 	rand.Seed(time.Now().UnixNano())
 
+	// Set hostname
+	name, err := os.Hostname()
+	if err != nil {
+		log.Fatal(err)
+	}
+	hostname = name
+
 	// Parse cmd arguments
 	ca := parseArgs()
-
-	// Track number of already processed benchmark executions
-	var numExecutions int = 0
 
 	if ca.GenPprof {
 		// Create folders for cpu and mem pprof files
@@ -103,7 +108,7 @@ func main() {
 	// Initiate logging
 	if ca.logfile {
 		// Create log file
-		f, err := os.OpenFile("./runner-log.txt", os.O_WRONLY|os.O_CREATE, 0755)
+		f, err = os.OpenFile("./"+hostname+"-log.txt", os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			log.Println(err)
 			panic(1)
@@ -112,7 +117,6 @@ func main() {
 	} else {
 		log.SetOutput(os.Stdout)
 	}
-
 	log.SetLevel(log.DebugLevel)
 
 	// Receive benchmarks from orchestrator
@@ -140,7 +144,7 @@ func main() {
 
 	// Run benchmarks
 	for i := 1; i <= ca.Sr; i++ {
-		log.Debugf("Begin Suite Run %d of %d", i, ca.Sr)
+		log.Infof("Begin Suite Run %d of %d", i, ca.Sr)
 		order := *common.CreateExtendedPerm(len(*benchmarks), ca.Iterations)
 		itCounts := make([]int, len(*benchmarks))
 		log.Debugf("Order of this run: %v", order)
@@ -165,6 +169,11 @@ func main() {
 					}
 				}
 
+				if (*benchmarks)[curr].Failing {
+					log.Info("Skipping previously failing benchmark: ", (*benchmarks)[curr].Name, " on tag: ", tag)
+					continue
+				}
+
 				// Run benchmark
 				err := (*benchmarks)[curr].RunBenchmark(ca.Bed, itCounts[curr], i, tag, ca.GenPprof)
 				if err != nil {
@@ -179,6 +188,7 @@ func main() {
 				clearBenchmarkMeasurements(benchmarks)
 				numExecutions = 0
 			}
+
 		}
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)
 	}
@@ -197,8 +207,8 @@ func main() {
 	sendDoneSignal(ca.OrchestratorIp, ca.MeasurementReportPort)
 	log.Debug("Finished sending measurements")
 
-	// Close logfile before uploading to bucket
-	if ca.logfile {
+	// Close and upload log file to bucket
+	if ca.logfile && f != nil {
 		log.Debug("Closing log file and uploading log file to bucket")
 		log.SetOutput(os.Stdout)
 		fileCloseErr := f.Close()
@@ -274,29 +284,28 @@ func clearBenchmarkMeasurements(benchmarks *[]common.Benchmark) {
 	}
 }
 
-// Uploads a single file or path to a google cloud bucket
+// Uploads a single file or directory to a google cloud bucket
 func uploadFilesToBucket(path string, gcpProjectName string, gcpBucketName string) {
-	var items []fs.FileInfo
+	var items []fs.DirEntry
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		log.Warnf("Could not get stat for path: %s", path)
 		return
 	}
 
-	// check if path is a directory or single file
+	// Check if single file or directory
 	if fileInfo.IsDir() {
-		items, _ = ioutil.ReadDir(path)
+		items, _ = os.ReadDir(path)
 	} else {
-		items = append(items, fileInfo)
+		items = append(items, fs.FileInfoToDirEntry(fileInfo))
 	}
 
-	// check if there is an item
 	if len(items) == 0 {
 		log.Warnf("No files found to upload in path: %s", path)
 		return
 	}
 
-	// open gcp storage client use default credentials (orchestrator should granta access)
+	// open gcp storage client use default credentials (orchestrator should grant access)
 	ctx := context.Background()
 	gclientStorage, err := storage.NewClient(ctx)
 	if err != nil {
@@ -304,22 +313,21 @@ func uploadFilesToBucket(path string, gcpProjectName string, gcpBucketName strin
 	}
 	defer gclientStorage.Close()
 
-	// Hostname is used as prefix for the uploaded files
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	for _, item := range items {
-		fmt.Println(item.Name())
-		bytes, err := ioutil.ReadFile(path + item.Name())
+		log.Debug("Uploading file: ", item.Name())
 
+		full_path := path
+		if item.IsDir() {
+			full_path = full_path + item.Name()
+		}
+
+		bytes, err := os.ReadFile(full_path)
 		if err != nil {
 			log.Warnf("Could not read file %s and upload it to bucket in path: %s", item.Name(), path)
 			continue
 		}
 
-		key := "exp4measure" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp4measurements" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }

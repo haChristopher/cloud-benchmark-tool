@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -31,6 +30,7 @@ type (
 		Package     string
 		ProjectPath string
 		Measurement []Measurement
+		Failing     bool
 	}
 )
 
@@ -51,17 +51,18 @@ func MaskNameRegexp(name string) string {
 	}
 	nameRegexp = nameRegexp + "^" + nameSplit[len(nameSplit)-1] + "$" // last iteration without '/'
 
-	log.Debug(fmt.Sprintf("Converted name: %s, to regexp: %s", name, nameRegexp))
+	log.Debugf("Converted name: %s, to regexp: %s", name, nameRegexp)
 	return nameRegexp
 }
 
 func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, genPprof bool) error {
 
-	cmd := exec.Command("go", "clean", "--cache")
-	_, err := cmd.CombinedOutput()
-	if err != nil {
-		return errors.Wrapf(err, "%#v: error while running go clean --cache.", cmd.Args)
-	}
+	// Not needed when using count=x
+	// cmd := exec.Command("go", "clean", "-testcache")
+	// _, err := cmd.CombinedOutput()
+	// if err != nil {
+	// 	return errors.Wrapf(err, "%#v: error while running go clean --cache.", cmd.Args)
+	// }
 
 	sRun := strconv.Itoa(srPos)
 	iter := strconv.Itoa(itPos)
@@ -84,16 +85,16 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 		out, err := cmd.CombinedOutput()
 
 		if err != nil {
+			log.Info("Marking benchmark as failing: ", bench.Name)
+			bench.Failing = true
 			return errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
 		}
 
-		// split output into lines
 		lines := strings.Split(string(out), "\n")
 
-		// parse output, this also wors for benchmarks with multiple measurements (-count > 1)
+		// parse output (this will detect multiple measurements -count > 1)
 		for j := 0; j < len(lines); j++ {
 			isBench := REGEX_BENCH.FindStringIndex(lines[j]) != nil
-
 			if isBench {
 				b, err := benchparser.ParseLine(lines[j])
 				if err != nil {
@@ -109,8 +110,6 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 					SrPos:   srPos,
 					Tag:     tag,
 				}
-
-				log.Debugf("Found measurement: %v", newMsrmnt)
 
 				bench.Measurement = append(bench.Measurement, newMsrmnt)
 			}
