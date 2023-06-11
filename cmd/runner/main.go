@@ -104,18 +104,16 @@ func main() {
 
 	// Create log file
 	var f *os.File
+	log.SetOutput(os.Stdout)
 
 	// Initiate logging
 	if ca.logfile {
-		// Create log file
 		f, err = os.OpenFile("./"+hostname+"-log.txt", os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			log.Println(err)
 			panic(1)
 		}
 		log.SetOutput(f)
-	} else {
-		log.SetOutput(os.Stdout)
 	}
 	log.SetLevel(log.DebugLevel)
 
@@ -139,11 +137,9 @@ func main() {
 	commands := strings.Split(ca.Commands, ",")
 	common.RunCommands(commands, ca.Path)
 
-	// Track totaltime for running the benchmarks
-	start := time.Now()
-
 	// Run benchmarks
 	for i := 1; i <= ca.Sr; i++ {
+		start := time.Now()
 		log.Infof("Begin Suite Run %d of %d", i, ca.Sr)
 		order := *common.CreateExtendedPerm(len(*benchmarks), ca.Iterations)
 		itCounts := make([]int, len(*benchmarks))
@@ -190,11 +186,10 @@ func main() {
 			}
 
 		}
+		elapsed := time.Since(start)
 		log.Debugf("Finished Suite Run %d of %d", i, ca.Sr)
+		log.Debugf("Running on suite run took: %s", elapsed)
 	}
-
-	elapsed := time.Since(start)
-	log.Printf("Running all benchmarks took: %s", elapsed)
 
 	if ca.GenPprof {
 		log.Debug("Uploading pprof files to bucket")

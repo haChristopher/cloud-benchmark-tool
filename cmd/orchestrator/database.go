@@ -28,7 +28,6 @@ type (
 		srSetup   int
 		irSetup   int
 		irPos     int
-		tag       string
 	}
 )
 
@@ -41,7 +40,6 @@ var queueMu sync.Mutex
 // cleanDb instructs the dropping of all relevant tables
 func ConnectToDB(dbConfig DbConfig, cleanDb bool) { // TODO finish
 	connectToSqlite()
-
 	initializeDB(cleanDb)
 }
 
@@ -263,6 +261,7 @@ func initializeDB(cleanDb bool) {
 		"ir_pos" INT NOT NULL,
 		"b_name" TEXT NOT NULL,
 		"tag" TEXT NOT NULL,
+		"count_idx" INT NOT NULL,
 		FOREIGN KEY(b_name) REFERENCES benchmark(b_name)
 	  );`
 
@@ -294,7 +293,6 @@ func insertProject(pName string, basePackage string) {
 }
 
 func insertBenchmark(bName string, subPackage string, pName string, config string) error {
-	log.Debug("Inserting benchmark record ...")
 	insertBenchmarkSQL := `INSERT INTO benchmark(b_name, subpackage, p_name, config) VALUES (?, ?, ?, ?)`
 	statement, err := db.Prepare(insertBenchmarkSQL) // Prepare statement
 	// This is good to avoid SQL injections
@@ -313,15 +311,14 @@ func insertBenchmark(bName string, subPackage string, pName string, config strin
 	return nil
 }
 
-func insertMeasurement(bName string, n int, nsPerOp float64, bedSetup int, itSetup int, srSetup int, irSetup int, bedPos int, itPos int, srPos int, irPos int, tag string) {
-	log.Debug("Inserting measurement record ...")
-	insertMeasurementSQL := `INSERT INTO measurement(n, ns_per_op, bed_setup, it_setup, sr_setup, ir_setup, bed_pos, it_pos, sr_pos, ir_pos, b_name, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+func insertMeasurement(bName string, n int, nsPerOp float64, bedSetup int, itSetup int, srSetup int, irSetup int, bedPos int, itPos int, srPos int, irPos int, tag string, countIndex int) {
+	insertMeasurementSQL := `INSERT INTO measurement(n, ns_per_op, bed_setup, it_setup, sr_setup, ir_setup, bed_pos, it_pos, sr_pos, ir_pos, b_name, tag, count_idx) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	statement, err := db.Prepare(insertMeasurementSQL) // Prepare statement
 	// This is good to avoid SQL injections
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
-	_, err = statement.Exec(n, nsPerOp, bedSetup, itSetup, srSetup, irSetup, bedPos, itPos, srPos, irPos, bName, tag)
+	_, err = statement.Exec(n, nsPerOp, bedSetup, itSetup, srSetup, irSetup, bedPos, itPos, srPos, irPos, bName, tag, countIndex)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -362,7 +359,21 @@ func dbQueueConsumer(wg *sync.WaitGroup) {
 		}
 		for i := 0; i < len(elem.benchmark.Measurement); i++ {
 			currMsrmnt := elem.benchmark.Measurement[i]
-			insertMeasurement(elem.benchmark.Name, currMsrmnt.N, currMsrmnt.NsPerOp, elem.bedSetup, elem.itSetup, elem.srSetup, elem.irSetup, currMsrmnt.BedPos, currMsrmnt.ItPos, currMsrmnt.SrPos, elem.irPos, currMsrmnt.Tag)
+			insertMeasurement(
+				elem.benchmark.Name,
+				currMsrmnt.N,
+				currMsrmnt.NsPerOp,
+				elem.bedSetup,
+				elem.itSetup,
+				elem.srSetup,
+				elem.irSetup,
+				currMsrmnt.BedPos,
+				currMsrmnt.ItPos,
+				currMsrmnt.SrPos,
+				elem.irPos,
+				currMsrmnt.Tag,
+				currMsrmnt.CountIndex,
+			)
 		}
 	}
 }

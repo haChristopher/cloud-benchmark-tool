@@ -42,7 +42,7 @@ run_benchmark_runner() {
 	git fetch --all --tags
 	git checkout tags/%s
 	cd ..
-    ./runner -path $WORK_DIR/proj -tags %s -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s -generate-pprof=%t -envs %s -commands %s
+    ./runner -path $WORK_DIR/proj -logfile -tags %s -base-package %s -bed %d -iterations %d -sr %d -orchestrator-ip %s -benchmark-list-port %s -measurement-report-port %s -project-name %s -bucket-name %s -generate-pprof=%t -envs %s -commands %s
     # do something with the extracted content
 }
 

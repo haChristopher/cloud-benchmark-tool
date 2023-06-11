@@ -16,12 +16,13 @@ var REGEX_BENCH = regexp.MustCompile(`^Benchmark`)
 
 type (
 	Measurement struct {
-		N       int
-		NsPerOp float64
-		BedPos  int
-		ItPos   int
-		SrPos   int
-		Tag     string
+		N          int
+		NsPerOp    float64
+		BedPos     int
+		ItPos      int
+		SrPos      int
+		Tag        string
+		CountIndex int
 	}
 
 	Benchmark struct {
@@ -68,7 +69,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 	iter := strconv.Itoa(itPos)
 
 	// Setting cpu to 1 to make parsing of benchmark names easier
-	var testArgs = []string{"test", "-benchtime", "1s", "-count", "5", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
+	var testArgs = []string{"test", "-benchtime", "1s", "-count", "6", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
 
 	if genPprof {
 		var cleanName = strings.Replace(bench.Name, "/", "-", -1)
@@ -93,6 +94,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 		lines := strings.Split(string(out), "\n")
 
 		// parse output (this will detect multiple measurements -count > 1)
+		numFoundMeasurements := 0
 		for j := 0; j < len(lines); j++ {
 			isBench := REGEX_BENCH.FindStringIndex(lines[j]) != nil
 			if isBench {
@@ -103,15 +105,17 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 
 				// save new measurement
 				newMsrmnt := Measurement{
-					N:       b.N,
-					NsPerOp: b.NsPerOp,
-					BedPos:  i + 1,
-					ItPos:   itPos,
-					SrPos:   srPos,
-					Tag:     tag,
+					N:          b.N,
+					NsPerOp:    b.NsPerOp,
+					BedPos:     i + 1,
+					ItPos:      itPos,
+					SrPos:      srPos,
+					Tag:        tag,
+					CountIndex: numFoundMeasurements,
 				}
 
 				bench.Measurement = append(bench.Measurement, newMsrmnt)
+				numFoundMeasurements++
 			}
 		}
 	}
