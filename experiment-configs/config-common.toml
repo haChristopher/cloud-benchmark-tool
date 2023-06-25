@@ -1,0 +1,51 @@
+######### Project Configuration #########
+
+name = "common"
+
+# Path to the project to benchmark
+path = "/home/chris77772/common/"
+
+projUri = "https://github.com/prometheus/common.git"
+
+# List of tags to run the benchmark for
+tags = ["v0.37.0", "v0.38.0", "v0.39.0"]
+
+basePackage = "github.com/prometheus/common"
+
+# List of commands to run before the benchmark inside the project directory
+commands=[]
+
+# Environment variables set for the project
+envs=[]
+
+######### GCP Configuration #########
+
+gcpProject = "master-thesis-benchmark"
+gcpBucket = "master-thesis-test-bucket"
+gcpDiskSize = 20
+gcpMachineType = "n1-highmem-2"
+
+# This tool needs a custom linux image with access to the Go compiler suite and git
+gcpImage = "debian-git-gvm-influxdb"
+
+# Zone and region to start instances in
+zone = "europe-west6-c"
+region = "europe-west6"
+
+######### Benchmark Configuration #########
+# When true pprof files are generated and saved to disk
+genPprof = false
+
+# Benchmark Execution Duration (baseline: 1s) (bed * 1s) 
+bed = 1
+
+# Number of executions of single benchmark during a suite run (baseline: 5) (remove)
+it = 5
+
+# Number of suite runs (baseline: 3) (remove)
+sr = 3
+
+# Number of instance runs (baseline: 3)
+ir = 3
+
+# IMPORTANT check benchtime inside runner for call graphs

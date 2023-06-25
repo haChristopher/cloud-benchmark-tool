@@ -322,7 +322,7 @@ func uploadFilesToBucket(path string, gcpProjectName string, gcpBucketName strin
 			continue
 		}
 
-		key := "exp4measurements" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp5Common" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }

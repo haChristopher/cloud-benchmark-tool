@@ -69,7 +69,7 @@ func (bench *Benchmark) RunBenchmark(bed int, itPos int, srPos int, tag string, 
 	iter := strconv.Itoa(itPos)
 
 	// Setting cpu to 1 to make parsing of benchmark names easier
-	var testArgs = []string{"test", "-benchtime", "1s", "-count", "6", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
+	var testArgs = []string{"test", "-benchtime", "1s", "-count", "3", "-bench", bench.NameRegexp, bench.Package, "-run", "^$", "-cpu", "1"}
 
 	if genPprof {
 		var cleanName = strings.Replace(bench.Name, "/", "-", -1)
