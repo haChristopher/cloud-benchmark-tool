@@ -312,7 +312,7 @@ func uploadFilesToBucket(path string, gcpProjectName string, gcpBucketName strin
 		log.Debug("Uploading file: ", item.Name())
 
 		full_path := path
-		if item.IsDir() {
+		if fileInfo.IsDir() {
 			full_path = full_path + item.Name()
 		}
 
@@ -322,7 +322,7 @@ func uploadFilesToBucket(path string, gcpProjectName string, gcpBucketName strin
 			continue
 		}
 
-		key := "exp6goquery" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
+		key := "exp7victoria" + "/" + hostname + "/" + time.Now().Format("01-02-2006") + "_" + item.Name()
 		common.UploadBytes(bytes, key, gcpProjectName, gcpBucketName, gclientStorage, ctx)
 	}
 }
