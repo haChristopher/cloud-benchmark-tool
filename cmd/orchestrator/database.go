@@ -114,9 +114,9 @@ func CollectBenchmarks(projName string, projPath string, basePackage string, tag
 		isBench := regex_bench.FindStringIndex(lines[i]) != nil
 
 		// isBench, err := regexp.MatchString("^Benchmark", lines[i])
-		if err != nil {
-			return nil, errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
-		}
+		// if err != nil {
+		// 	return nil, errors.Wrapf(err, "%#v: output: %s", cmd.Args, out)
+		// }
 
 		if isBench {
 			b, err := benchparser.ParseLine(lines[i])

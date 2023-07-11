@@ -80,7 +80,7 @@ Orchestrator (Build and Run):
 ```bash
 make all
 
-./build/orchestrator -local --configFile config-roaring-local.toml --clean-db -bench ^BenchmarkChecksum$
+./build/orchestrator -local --configFile experiment-configs/config-victoria.toml --clean-db -bench ^BenchmarkChecksum$
 ```
 
 Runner (Build and Run):
